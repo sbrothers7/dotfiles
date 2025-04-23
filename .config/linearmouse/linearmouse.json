@@ -1,0 +1,48 @@
+{
+  "schemes" : [
+    {
+      "pointer" : {
+        "speed" : 0.0332,
+        "acceleration" : 1,
+        "disableAcceleration" : false
+      },
+      "scrolling" : {
+        "speed" : {
+          "vertical" : 30.99
+        },
+        "acceleration" : {
+          "vertical" : 0
+        }
+      },
+      "if" : {
+        "device" : {
+          "serialNumber" : "000000000000",
+          "productName" : "Glorious Wireless Dongle",
+          "vendorID" : "0x258a",
+          "category" : "mouse",
+          "productID" : "0x2026"
+        }
+      }
+    },
+    {
+      "pointer" : {
+        "acceleration" : 0.5627
+      },
+      "scrolling" : {
+        "acceleration" : {
+          "vertical" : 0.43
+        }
+      },
+      "if" : {
+        "device" : {
+          "vendorID" : "0xfeed",
+          "category" : "mouse",
+          "productID" : "0xf00d",
+          "productName" : "VirtualHID",
+          "serialNumber" : "0001"
+        }
+      }
+    }
+  ],
+  "$schema" : "https:\/\/schema.linearmouse.app\/0.10.0"
+}

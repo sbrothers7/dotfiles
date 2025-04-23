@@ -1,0 +1,302 @@
+# single column on small panes
+$[ $lf_width -le 80 ] && lf -remote "send $id :set nopreview; set ratios 1" || exit 0
+
+set shell sh
+set sortby time
+set reverse
+set nodirfirst
+set icons
+set incsearch
+set incfilter
+# set scrolloff 0
+set promptfmt "\033[32;1m%u@%h\033[0m:\033[34;1m%d\033[0m" # remove file name
+set hidden
+set info size
+
+set previewer ctpv
+set cleaner ctpvclear
+&ctpv -s $id
+&ctpvquit $id
+
+# set '-eu' options for shell commands
+# These options are used to have safer shell commands. Option '-e' is used to
+# exit on error and option '-u' is used to give error for unset variables.
+# Option '-f' disables pathname expansion which can be useful when $f, $fs, and
+# $fx variables contain names with '*' or '?' characters. However, this option
+# is used selectively within individual commands as it can be limiting at
+# times.
+set shellopts '-eu'
+
+# set internal field separator (IFS) to "\n" for shell commands
+# This is useful to automatically split file names in $fs and $fx properly
+# since default file separator used in these variables (i.e. 'filesep' option)
+# is newline. You need to consider the values of these options and create your
+# commands accordingly.
+set ifs "\n"
+
+# Use the `dim` attribute instead of underline for the cursor in the preview pane
+set cursorpreviewfmt "\033[7;2m"
+
+map R :reload; recol; cfg_reload
+
+map sr set reverse!
+map sd set dirfirst!
+
+map gh cd ~
+map gd cd ~/Downloads
+map gs cd ~/Documents
+map gp cd ~/personal
+map gn cd ~/personal/notes
+map gw cd ~/work
+map ga cd /Applications
+map gv cd /Volumes
+map gc cd ~/.config
+
+map xz zip
+map xt tar
+map xx extract
+map xn extract_to_dir
+
+map o $open $f ; lf -remote "send ${id} quit"
+map O $open -R $fx
+map Q $lf -remote "send quit" # close all window
+map i $$lf_previewer "$f"
+map I %file "$f"
+
+map y
+map yy copy
+map yp $printf "%s" "$fx" | pbcopy       # full path
+map yn $printf "%s" "${fx##*/}" | pbcopy # filename
+map yd $printf "%s" "${fx%/*}" | pbcopy  # dirname
+
+map d
+map dd cut
+map dD delete
+map dF delete
+map DD trash
+map dt trash
+map p
+map pp paste
+map P paste
+
+map F fzf_jump
+map f
+map fa fzf_search_all
+map fg push :fzf_grep<space>
+map f<space> filter
+map ff filter
+map fc setfilter
+map fz fzf_jump
+map <c-p> fzf_jump
+
+map J :updir; set dironly true; down; set dironly false; open
+map K :updir; set dironly true; up; set dironly false; open
+map <c-j> down
+map <c-k> up
+
+map a push :create<space>
+map E push nvim <space>
+map e $nvim $f
+map <backspace2> updir # somehow backspace2 is actual backspace on HHKB, <c-h> is <backspace>
+
+map l open
+map <enter> open
+map Z zi
+map z<space> push :z<space>
+map <c-c> :redraw; reload
+map <tab> :toggle; down
+map <space> quicklook
+map <delete> delete
+map <c-c> clear
+map g. set hidden!
+map zp set preview!
+map zd set dirfirst!
+
+map ?
+map ?? maps
+map ?s $echo $fx | less
+map ?b $cat ~/.local/share/lf/files | less
+
+map +x chmod +x
+map +w chmod +w
+map +r chmod +r
+map -x chmod -x
+map -w chmod -w
+map -r chmod -r
+
+map z1 :set nopreview; set ratios 1
+map z2 :set nopreview; set ratios 1:2
+map z3 :set ratios 1:2:3; set preview
+
+cmd cfg_reload source ~/.config/lf/lfrc
+cmd follow_link %{{
+  lf -remote "send ${id} select '$(readlink $f)'"
+}}
+map gL follow_link
+map S $$SHELL
+
+cmd chmod ${{
+        [ $# -ne 1 ] && exit
+        eval "chmod u$1 '$f'"
+        lf -remote "send $id reload"
+}}
+
+cmd quicklook &{{
+    qlmanage -p $f &>/dev/null
+}}
+
+cmd lfopen ${{
+    if [ -d "$f" ]; then
+        lf -remote "send $id cd '$f'"
+    elif [ -f "$f" ]; then
+        "$lf_previewer" "$f"
+    fi
+}}
+
+cmd trash $trash -F $fx # trash installed via brew install trash
+
+cmd delete ${{
+    set -f
+    printf "$fx\n\n"
+    printf "Delete? [y/N]"
+    read -n1 ans
+    [ "$ans" = "y" ] && rm -rf $fx
+}}
+
+cmd deleteImmediately ${{
+        rm -rf $fx
+}}
+
+cmd recol ${{
+    w=$(tput cols)
+    if [ $w -le 80 ]; then
+        lf -remote "send $id :set nopreview; set ratios 1" || exit 0
+    else
+        lf -remote "send $id set ratios 1:2:3; set preview" || exit 0
+    fi
+}}
+
+# extract the current file with the right command
+# (xkcd link: https://xkcd.com/1168/)
+cmd extract ${{
+    set -f
+    case $f in
+        *.tar.bz|*.tar.bz2|*.tbz|*.tbz2) tar xjvf $f;;
+        *.tar.gz|*.tgz) tar xzvf $f;;
+        *.tar.xz|*.txz) tar xJvf $f;;
+        *.zip) unzip $f;;
+        *.rar) unrar x $f;;
+        *.7z) 7z x $f;;
+    esac
+}}
+
+cmd extract_to_dir ${{
+    set -f
+    # extract to the directory of the current file removing the extension
+    dir=${f%.*}
+    mkdir -p $dir
+    case $f in
+        *.tar.bz|*.tar.bz2|*.tbz|*.tbz2) tar xjvf $f -C $dir;;
+        *.tar.gz|*.tgz) tar xzvf $f -C $dir;;
+        *.tar.xz|*.txz) tar xJvf $f -C $dir;;
+        *.zip) unzip $f -d $dir;;
+        *.rar) unrar x $f $dir;;
+        *.7z) 7z x $f -o$dir;;
+    esac
+    lf -remote "send $id reload"
+    lf -remote "send $id select \"$dir\""
+}}
+
+# compress current file or selected files with tar and gunzip
+cmd tar ${{
+    dir=${f%/*}
+    dir=${dir##*/}
+    set -f
+    tar czf "${dir}.tar.gz" $fx
+}}
+
+# compress current file or selected files with zip
+cmd zip ${{
+    dir=${f%/*}
+    dir=${dir##*/}
+    set -f
+    zip -r "${dir}.zip" $fx
+}}
+
+cmd z %{{
+    d="${@/#\~/$HOME}" # tilde doesn't expand in quotes or vars
+    if [ -d $d ]; then
+        lf -remote "send $id cd '$d'"
+        zoxide add "$d"
+    else
+        result="$(zoxide query --exclude $PWD $@)"
+        lf -remote "send $id cd \"$result\""
+    fi
+}}
+
+cmd zi ${{
+    FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --min-height=100"
+    result="$(zoxide query -i)"
+    lf -remote "send $id cd \"$result\""
+}}
+
+cmd mkdir %{{
+    IFS=" "
+    mkdir -p -- "$*"
+    lf -remote "send $id select \"$*\""
+}}
+
+cmd touch %{{
+    IFS=" "
+    if [ -z "$*" ]; then echo "name required"; exit; fi
+    if [ -f "$*" ]; then echo "file exists"; exit; fi
+    if [ -d "$*" ]; then echo "there is a directory with the same name"; exit; fi
+    touch "$*"
+    lf -remote "send $id select \"$*\""
+}}
+
+cmd create %{{
+    IFS=" "
+    if [ -z "$*" ]; then echo "name required"; exit; fi
+    if [[ "$*" == */ ]] ; then
+        mkdir -p -- "$*"
+        lf -remote "send $id select \"$*\""
+        exit 0
+    fi
+    base=$(dirname -- "$*")
+    [ "$base" != . ] && mkdir -p -- "$base"
+    touch "$*"
+    lf -remote "send $id select \"$*\""
+}}
+
+cmd fzf_jump ${{
+    pwd=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+    res="$(fd . $pwd -H -I -d 6 -E .git -E node_modules | fzf +m | sed 's/\\/\\\\/g;s/"/\\"/g')"
+    if [ -d "$res" ] ; then
+        cmd="cd"
+    elif [ -f "$res" ] ; then
+        cmd="select"
+    else
+        exit 0
+    fi
+    lf -remote "send $id $cmd \"$res\""
+}}
+
+cmd fzf_search_all ${{
+    res="$( \
+        RG_PREFIX="rg --column --line-number --no-heading --color=always \
+            --smart-case "
+        FZF_DEFAULT_COMMAND="$RG_PREFIX ''" \
+            fzf --ansi --bind "change:reload:$RG_PREFIX {q} || true" \
+            | cut -d':' -f1
+    )"
+    [ ! -z "$res" ] && lf -remote "send $id select \"$res\""
+}}
+
+cmd fzf_grep ${{
+    res="$( \
+        rg --column --line-number --no-heading --color=always --smart-case -e "$*"| \
+        fzf --ansi | cut -d':' -f1
+    )"
+    [ ! -z "$res" ] && lf -remote "send $id select \"$res\""
+}}
