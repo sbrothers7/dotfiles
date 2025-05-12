@@ -64,4 +64,4 @@ alt - m : [[ $(yabai -m config focus_follows_mouse) = "disabled" ]] && \
     yabai -m config focus_follows_mouse autoraise || \
     yabai -m config focus_follows_mouse off
 
-alt - return : open -a /Applications/kitty.app
+ctrl - return : open -a /Applications/kitty.app

@@ -26,7 +26,7 @@ brew install gsl boost libomp wget jq ripgrep bear mas gh < /dev/null
 brew install ifstat switchaudio-osx lua < /dev/null # sketchybar widgets
 brew install lf ctpv btop neovim < /dev/null # utilities
 brew install git lazygit stow < /dev/null
-brew install fzf zsh-syntax-highlighting zsh-autosuggestions < /dev/null # zsh
+brew install fzf zsh-syntax-highlighting zsh-autosuggestions autojump < /dev/null # zsh
 brew install ffmpeg mono node python armadillo < /dev/null # big packages
 
 ## Casks
