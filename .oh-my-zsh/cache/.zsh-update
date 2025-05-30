@@ -1,1 +1,3 @@
-LAST_EPOCH=20200
+LAST_EPOCH=20226
+EXIT_STATUS=1
+ERROR='fatal: invalid reference: master'
