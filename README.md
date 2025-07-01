@@ -10,9 +10,6 @@ Run the script in terminal. It will ask for the mac user password when trying to
 Reload ZSH config manually:
 <pre lang="markdown">source .zshrc</pre>
 
-Install the recommended font for p10k if fonts aren't displaying correctly in your terminal emulator:
-<pre lang="markdown">p10k configure</pre>
-
 ### Notes
 - yabai top padding is set for a Macbook Pro 14". For devices that do not have a notch, adjust the top padding value. It is located at ```~/dotfiles/.config/yabai/yabairc```.
 
