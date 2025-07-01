@@ -245,4 +245,4 @@ if [[ $yabaisudoer =~ ^[Yy]$ ]]; then
 fi
 
 echo "${BOLD_GREEN}Installation complete.${RESET}"
-echo "source ./zshrc\n${BOLD_BLUE}to apply changes."
+echo "source .zshrc\n${BOLD_BLUE}to apply changes."
