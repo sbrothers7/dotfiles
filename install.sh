@@ -16,8 +16,18 @@ fi
 
 echo "${BOLD_BLUE}\nChecking Homebrew Installation...${RESET}"
 if ! command -v brew >/dev/null 2>&1; then
-  echo "${BOLD_RED}Homebrew is not installed. Please install Homebrew first: https://brew.sh/${RESET}"
-  exit 1
+  echo "${BOLD_RED}Homebrew is not installed.${RESET}"
+  echo "${BOLD_GREEN}Attempting to install homebrew...${RESET}"
+ 
+  curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh -o /tmp/install_homebrew.sh
+  chmod +x /tmp/install_homebrew.sh
+  /bin/bash /tmp/install_homebrew.sh
+
+  echo >> $HOME/.zprofile
+  echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> $HOME/.zprofile
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+
+  echo "${BOLD_GREEN}Successfully installed homebrew. Continuing installation...${RESET}"
 else
   echo "${BOLD_GREEN}Found homebrew installation. Continuing..."
 fi
