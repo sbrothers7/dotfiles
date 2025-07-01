@@ -1,4 +1,4 @@
 /.config/karabiner/automatic_backups
 .DS_Store
-.oh-my-zsh/.DS_Store
-.oh-my-zsh/custom/.DS_Store
+
+.config/nvim/lua/.DS_Store
