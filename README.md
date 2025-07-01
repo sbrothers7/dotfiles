@@ -9,6 +9,10 @@ Run the script in terminal. It will ask for the mac user password when trying to
 ### Notes
 - yabai top padding is set for a Macbook Pro 14" with Apple Silicon and MacOS 13.x+. For devices that do not have a notch, adjust the top padding value. It is located at ```~/dotfiles/.config/yabai/yabairc```.
 
+# Updating
+Simply pull from the repository.
+<pre lang="markdown">git pull https://github.com/sbrothers7/dotfiles</pre>
+
 # Troubleshooting
 #### Shell Hasn't Changed After Install
 Reload ZSH config manually:
