@@ -7,7 +7,7 @@ Install [homebrew](https://brew.sh) before running!
 Run the script in terminal. It will ask for the mac user password when trying to install some casks.
 
 ### Notes
-- yabai top padding is set for a Macbook Pro 14". For devices that do not have a notch, adjust the top padding value. It is located at ```~/dotfiles/.config/yabai/yabairc```.
+- yabai top padding is set for a Macbook Pro 14" with Apple Silicon and MacOS 13.x+. For devices that do not have a notch, adjust the top padding value. It is located at ```~/dotfiles/.config/yabai/yabairc```.
 
 # Troubleshooting
 #### Shell Hasn't Changed After Install
