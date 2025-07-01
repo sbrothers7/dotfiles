@@ -6,15 +6,8 @@ BOLD_GREEN="\033[1;32m"
 BOLD_RED="\033[1;31m"
 RESET="\033[0m"
 
-# Install xCode CLI tools
-echo "${BOLD_BLUE}Installing command line tools...${RESET}"
-if xcode-select -p &>/dev/null; then
-  echo "${BOLD_GREEN}xCode CLI is already installed. Continuing...${RESET}"
-else
-  xcode-select --install
-fi
-
-echo "${BOLD_BLUE}\nChecking Homebrew Installation...${RESET}"
+# Homebrew installation
+echo "${BOLD_BLUE}\nChecking homebrew installation...${RESET}"
 if ! command -v brew >/dev/null 2>&1; then
   echo "${BOLD_RED}Homebrew is not installed.${RESET}"
   echo "${BOLD_GREEN}Attempting to install homebrew...${RESET}"
@@ -32,13 +25,21 @@ else
   echo "${BOLD_GREEN}Found homebrew installation. Continuing..."
 fi
 
-## Taps
-echo "${BOLD_BLUE}\nTapping Brew...${RESET}"
+# Install xCode CLI tools
+echo "${BOLD_BLUE}Checking command line tools installation...${RESET}"
+if xcode-select -p &>/dev/null; then
+  echo "${BOLD_GREEN}xCode command line tools is already installed. Continuing...${RESET}"
+else
+  xcode-select --install
+fi
+
+# Taps
+echo "${BOLD_BLUE}\nTapping brew...${RESET}"
 brew tap FelixKratz/formulae
 brew tap koekeishiya/formulae
 
-## Formulae
-echo "${BOLD_BLUE}Installing Brew Formulae...${RESET}"
+# Formulae
+echo "${BOLD_BLUE}Installing brew formulae...${RESET}"
 
 echo -n "${BOLD_BLUE}\nInstall tiling window manager? [y/n]: ${RESET}"
 read -k 1 yabai
@@ -67,14 +68,59 @@ else
   echo "${BOLD_GREEN}Skipping...${RESET}"
 fi
 
-brew install lf ctpv btop neovim < /dev/null # utilities
-brew install gsl boost libomp wget jq ripgrep bear mas gh < /dev/null
+echo "${BOLD_BLUE}\nInstalling git and stow...${RESET}"
 brew install git lazygit stow < /dev/null
-brew install starship fzf zsh-syntax-highlighting zsh-autosuggestions autojump < /dev/null # zsh
-brew install ffmpeg mono node python armadillo < /dev/null # big packages
+
+echo -n "${BOLD_BLUE}\nInstall CLI utilities? [y/n]: "
+read -k 1 cliutil
+echo
+if [[ $cliutil =~ ^[Yy]$ ]]; then
+  brew install lf ctpv btop neovim fastfetch yt-dlp < /dev/null # utilities
+else
+  echo "${BOLD_GREEN}Skipping...${RESET}"
+fi
+
+echo -n "${BOLD_BLUE}\nInstall zsh utilities? [y/n]: ${RESET}"
+read -k 1 zshutil
+echo
+if [[ $zshutil =~ ^[Yy]$ ]]; then
+  brew install starship fzf zsh-syntax-highlighting zsh-autosuggestions autojump < /dev/null # zsh
+else
+  echo "${BOLD_GREEN}Skipping...${RESET}"
+fi
+
+echo "${BOLD_BLUE}\nInstalling dependencies..."
+brew install gsl boost libomp wget jq ripgrep bear mas gh < /dev/null
+
+echo -n "${BOLD_BLUE}\nInstall ffmpeg? [y/n]: ${RESET}"
+read -k 1 ffmpeg
+echo
+if [[ $ffmpeg =~ ^[Yy]$ ]]; then
+  brew install ffmpeg < /dev/null
+else
+  echo "${BOLD_GREEN}Skipping...${RESET}"
+fi
+
+echo -n "${BOLD_BLUE}\nInstall python and node? [y/n]: ${RESET}"
+read -k 1 pynode
+echo
+if [[ $pynode =~ ^[Yy]$ ]]; then
+  brew install node python < /dev/null
+else
+  echo "${BOLD_GREEN}Skipping...${RESET}"
+fi
+
+echo -n "${BOLD_BLUE}\nInstall mono and armadillo? [y/n]: ${RESET}"
+read -k 1 monoarma 
+echo
+if [[ $monoarma =~ ^[Yy]$ ]]; then
+  brew install mono armadillo < /dev/null
+else
+  echo "${BOLD_GREEN}Skipping...${RESET}"
+fi
 
 ## Casks
-echo "${BOLD_BLUE}\nInstalling Brew Casks...${RESET}"
+echo "${BOLD_BLUE}\nInstalling brew casks...${RESET}"
 brew install --cask kitty \
 brave-browser \
 karabiner-elements
@@ -161,10 +207,9 @@ echo -n "${BOLD_BLUE}\nUse config files? [y/n]: ${RESET}"
 read -k 1 config
 echo
 if [[ $config =~ ^[Yy]$ ]]; then
-  echo "${BOLD_BLUE}Planting Configuration Files...${RESET}"
+  echo "${BOLD_BLUE}Planting configuration files...${RESET}"
   [ ! -d "$HOME/dotfiles" ] && git clone "https://github.com/sbrothers7/dotfiles" $HOME/dotfiles
   source $HOME/dotfiles/.zshrc
-  cfg config --local status.showUntrackedFiles no
   
   echo "${BOLD_BLUE}Attempting to stow items to root folder...${RESET}"
   rm -rf .zprofile
@@ -176,11 +221,15 @@ fi
 echo "${BOLD_GREEN}All dependencies installed successfully.${RESET}"
 
 # Start Services
-echo "${BOLD_BLUE}\nStarting Services (grant permissions)...${RESET}"
+echo "${BOLD_BLUE}\nStarting services (grant permissions)...${RESET}"
 yabai --start-service
 skhd --start-service
-brew services start sketchybar
-brew services start borders
+if [[ $sketchybar =~ ^[Yy]$ ]]; then
+  brew services start sketchybar
+fi
+if [[ $borders =~ ^[Yy]$ ]]; then
+  brew services start borders
+fi
 
 echo "${BOLD_BLUE}\nChecking SIP status...${RESET}"
 csrutil status
@@ -192,8 +241,8 @@ echo -n "${BOLD_BLUE}Add sudoer for yabai features? [y/n]: ${RESET}"
 read -k 1 yabaisudoer 
 echo
 if [[ $yabaisudoer =~ ^[Yy]$ ]]; then
-  $(whoami) ALL = (root) NOPASSWD: sha256:$(shasum -a 256 $(which yabai) | awk "{print \$1;}") $(which yabai) --load-sa' to '/private/etc/sudoers.d/yabai
+  echo "$(whoami) ALL=(root) NOPASSWD: sha256:$(shasum -a 256 $(which yabai) | cut -d " " -f 1) $(which yabai) --load-sa" | sudo tee /private/etc/sudoers.d/yabai
 fi
 
-echo "${BOLD_GREEN}Installation complete."
-source .zshrc
+echo "${BOLD_GREEN}Installation complete.${RESET}"
+echo "source .zshrc\n${BOLD_BLUE}to apply changes."
