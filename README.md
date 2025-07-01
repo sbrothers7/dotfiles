@@ -3,7 +3,7 @@
 Install [homebrew](https://brew.sh) before running!
 
 ### Installation Script
-<pre lang="markdown"> curl -L https://raw.githubusercontent.com/sbrothers7/dotfiles/main/install.sh | sh</pre>
+<pre lang="markdown">zsh < (curl -sL https://raw.githubusercontent.com/sbrothers7/dotfiles/main/install.sh)</pre>
 Run the script in terminal. It will ask for the mac user password when trying to install some casks.
 
 ### After Install
