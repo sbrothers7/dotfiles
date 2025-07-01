@@ -2,44 +2,76 @@
   "schemes" : [
     {
       "pointer" : {
-        "speed" : 0.0332,
-        "acceleration" : 1,
-        "disableAcceleration" : false
-      },
-      "scrolling" : {
-        "speed" : {
-          "vertical" : 30.99
-        },
-        "acceleration" : {
-          "vertical" : 0
-        }
+        "disableAcceleration" : false,
+        "acceleration" : 0.0163,
+        "speed" : 0.1205
       },
       "if" : {
         "device" : {
-          "serialNumber" : "000000000000",
-          "productName" : "Glorious Wireless Dongle",
           "vendorID" : "0x258a",
-          "category" : "mouse",
-          "productID" : "0x2026"
+          "productName" : "Glorious Wireless Dongle",
+          "productID" : "0x2026",
+          "serialNumber" : "000000000000",
+          "category" : "mouse"
+        }
+      },
+      "scrolling" : {
+        "reverse" : {
+          "vertical" : false
+        },
+        "acceleration" : {
+          "vertical" : 0
+        },
+        "speed" : {
+          "vertical" : 30.99
         }
       }
     },
     {
       "pointer" : {
-        "acceleration" : 0.5627
+        "acceleration" : 0.1997,
+        "speed" : 0.02
+      },
+      "if" : {
+        "device" : {
+          "productID" : "0xf00d",
+          "vendorID" : "0xfeed",
+          "category" : "mouse",
+          "serialNumber" : "0001",
+          "productName" : "VirtualHID"
+        }
       },
       "scrolling" : {
         "acceleration" : {
           "vertical" : 0.43
         }
+      }
+    },
+    {
+      "pointer" : {
+        "speed" : 0.0498
       },
       "if" : {
         "device" : {
-          "vendorID" : "0xfeed",
+          "productID" : "0x0",
+          "productName" : "Apple Internal Keyboard \/ Trackpad",
+          "category" : "trackpad",
+          "vendorID" : "0x0"
+        }
+      }
+    },
+    {
+      "pointer" : {
+        "speed" : 0.0752,
+        "acceleration" : 0.1787
+      },
+      "if" : {
+        "device" : {
+          "productName" : "Model O- Wireless",
+          "vendorID" : "0x258a",
           "category" : "mouse",
-          "productID" : "0xf00d",
-          "productName" : "VirtualHID",
-          "serialNumber" : "0001"
+          "productID" : "0x2013",
+          "serialNumber" : "000000000000"
         }
       }
     }

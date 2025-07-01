@@ -27,5 +27,5 @@ cd ()
 
 
 clear
+ff
 # fastfetch -c $HOME/.config/fastfetch/config-compact.jsonc
-
