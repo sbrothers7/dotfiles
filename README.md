@@ -3,17 +3,21 @@
 Install [homebrew](https://brew.sh) before running!
 
 ### Installation Script
-<pre lang="markdown"> curl -L https://raw.githubusercontent.com/sbrothers7/dotfiles/main/install.sh | sh</pre>
+<pre lang="markdown">zsh <(curl -sL https://raw.githubusercontent.com/sbrothers7/dotfiles/main/install.sh)</pre>
 Run the script in terminal. It will ask for the mac user password when trying to install some casks.
 
-### After Install
+### Notes
+- yabai top padding is set for a Macbook Pro 14" with Apple Silicon and MacOS 13.x+. For devices that do not have a notch, adjust the top padding value. It is located at ```~/dotfiles/.config/yabai/yabairc```.
+
+# Updating
+Simply pull from the repository.
+<pre lang="markdown">git pull https://github.com/sbrothers7/dotfiles</pre>
+
+# Troubleshooting
+#### Shell Hasn't Changed After Install
 Reload ZSH config manually:
 <pre lang="markdown">source .zshrc</pre>
 
-### Notes
-- yabai top padding is set for a Macbook Pro 14". For devices that do not have a notch, adjust the top padding value. It is located at ```~/dotfiles/.config/yabai/yabairc```.
-
-# Troubleshooting
 #### ```stow``` Issues
 If there aren't symlinked dotfiles in your home folder:
 - Navigate to the home folder (```cd ~```)
