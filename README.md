@@ -52,10 +52,14 @@ Simply pull from the repository.
 Reload ZSH config manually:
 <pre lang="markdown">source .zshrc</pre>
 
-### ```stow``` Issues
+### `stow` Issues
 If there aren't symlinked dotfiles in your home folder:
-- Navigate to the home folder (```cd ~```)
-- Delete any duplicates (```.zshrc```, ```.zprofile```, etc.)
-- Navigate to dotfiles folder (```cd dotfiles```)
+- Navigate to the home folder (`cd ~`)
+- Delete any duplicates (`.zshrc`, `.zprofile`, etc.)
+- Navigate to dotfiles folder (`cd dotfiles`)
 - Stow files using command below:
 <pre lang="markdown">stow .</pre>
+
+### Using PIP
+A virtual environment needs to be set up and activated when needed when python is installed via homebrew. The install script creates an alias for this named 'pyinit', but for it to function, **the virtual environment must be located at the home directory and named** `.pyvenv`.
+Refer to [here](https://docs.python.org/3/library/venv.html) for more information.
