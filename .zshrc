@@ -14,7 +14,20 @@ source $(brew --prefix)/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 alias pyinit='source ~/.pyvenv/bin/activate'
 alias shrl='source ~/.zshrc'
 alias ff='fastfetch'
+alias tt='
+    brew services stop sketchybar; \
+    brew services stop borders; \
+    yabai --stop-service; \
+    skhd --stop-service \
+'
+alias ttexit='
+    brew services start sketchybar; \
+    brew services start borders; \
+    yabai --start-service; \
+    skhd --start-service \
+'
 
+alias clawdir='cd /Users/preluminance/.pyvenv/lib/python3.13/site-packages/clawpack'
 
 cd ()
 {

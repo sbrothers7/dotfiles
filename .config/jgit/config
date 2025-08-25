@@ -1,3 +1,0 @@
-[filesystem "Microsoft|21.0.3|/dev/disk3s5"]
-	timestampResolution = 9000 nanoseconds
-	minRacyThreshold = 0 nanoseconds

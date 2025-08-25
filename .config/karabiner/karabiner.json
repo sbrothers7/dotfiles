@@ -106,6 +106,30 @@
                             "to": [{ "key_code": "semicolon" }]
                         },
                         {
+                            "from": { "key_code": "keypad_3" },
+                            "to": [{ "key_code": "3" }]
+                        },
+                        {
+                            "from": { "key_code": "keypad_6" },
+                            "to": [{ "key_code": "6" }]
+                        },
+                        {
+                            "from": { "key_code": "keypad_9" },
+                            "to": [{ "key_code": "9" }]
+                        },
+                        {
+                            "from": { "key_code": "keypad_num_lock" },
+                            "to": [{ "key_code": "equal_sign" }]
+                        },
+                        {
+                            "from": { "key_code": "keypad_slash" },
+                            "to": [{ "key_code": "slash" }]
+                        },
+                        {
+                            "from": { "key_code": "left_shift" },
+                            "to": [{ "key_code": "backslash" }]
+                        },
+                        {
                             "from": { "key_code": "right_option" },
                             "to": [{ "key_code": "quote" }]
                         }
