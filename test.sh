@@ -1,10 +1,11 @@
 #!/bin/zsh
 
-# Colors
-BOLD_BLUE="\033[1;34m"
-BOLD_GREEN="\033[1;32m"
-BOLD_RED="\033[1;31m"
-RESET="\033[0m"
+ok()    { print -P "%B%F{green}✔ $*%f%b"; }
+warn()  { print -P "%F{yellow}$*%f"; }
+err()   { print -P "%B%F{red}✖ $*%f%b"; }
+info()  { print -P "%B%F{blue}$*%f%b"; }
+dim()   { print -P "%F{black}$*%f"; }
+
 
 # ============ CONFIG ============
 typeset -a CATEGORIES=( WM ZSH Utilities Casks Defaults Other Quit )
@@ -12,21 +13,21 @@ typeset -a SUBCATS=( ${CATEGORIES:#Quit} )
 
 typeset -a CATEGORY_WM=( "yabai" "skhd" "borders" "sketchybar")
 typeset -a CATEGORY_ZSH=( "zsh-syntax-highlighting" "zsh-autosuggestions" "starship" )
-typeset -a CATEGORY_Utilities=( "neovim" "fastfetch" "lf" "yt-dlp" "btop" "ffmpeg" "mono" "armadillo")
-typeset -a CATEGORY_Casks=( "kitty" "brave-browser" "karabiner-elements" "sol" "middleclick" "linearmouse" "slimhud" "yellowdot")
+typeset -a CATEGORY_Utilities=( "neovim" "fastfetch" "lf" "yt-dlp" "btop" "ffmpeg" "mono" "armadillo" "lazygit" "llvm" "python" "node" "openjdk" "lua" "qemu" )
+typeset -a CATEGORY_Casks=( "kitty" "brave-browser" "karabiner-elements" "sol" "middleclick" "linearmouse" "slimhud" "yellowdot" "mpv" "command-x" "alt-tab" "prismlauncher" "bluestacks" "discord" "gimp" "obs" "qutebrowser")
 typeset -a CATEGORY_Defaults=( "Minimalist" "No Animations" "Revamped Finder" )
-typeset -a CATEGORY_Other=( "Rosetta 2" "Fonts")
+typeset -a CATEGORY_Other=( "Rosetta 2" "Fonts" "KISJ App Bundle")
 
 typeset -a DEFAULT_WM=( 1 2 3 4 )
 typeset -a DEFAULT_ZSH=( 1 2 3 )
 typeset -a DEFAULT_Utilities=( 1 2 3 4 )
 typeset -a DEFAULT_Casks=( 1 2 3 4 5 )
 typeset -a DEFAULT_Defaults=( 1 2 )
-typeset -a DEFAULT_Other=( 1 )
+typeset -a DEFAULT_Other=( 1 2 )
 
 TITLE="Installation Setup"
-PROMPT_MAIN="Enter number to open a submenu\n([c]onfirm, [l]ist, [h]elp, [q]uit):"
-PROMPT_SUB="Enter number to toggle selection\n([a]ll, [n]one, [l]ist, [h]elp, [b]ack):"
+PROMPT_MAIN="%BEnter number to open a submenu%b\n([c]onfirm, [l]ist, [h]elp, [r]eset all, [q]uit):"
+PROMPT_SUB="%BEnter number to toggle selection%b\n([a]ll, [n]one, [l]ist, [h]elp, [b]ack):"
 
 # ============ STATE ============
 typeset -a selected_WM selected_ZSH selected_Utilities selected_Casks selected_Defaults selected_Other
@@ -44,6 +45,8 @@ init() {
             (( d>=1 && d<=len )) && '"${sel_var}"'[$d]=1
           done'
   done
+
+  
 }
 
 
@@ -57,7 +60,7 @@ render_main() {
     printf "%2d) %s\n" $i "${CATEGORIES[$i]}"
   done
   print -P "%B%F{blue}--------------------------------%f%b"
-  print -n -- "$PROMPT_MAIN "
+  print -Pn -- "$PROMPT_MAIN "
 }
 
 render_submenu() {
@@ -71,7 +74,7 @@ render_submenu() {
     printf "%2d) %s %s\n" $i "$mark" "${items[$i]}"
   done
   print -P "%B%F{blue}--------------------------------%f%b"
-  print -n -- "$PROMPT_SUB "
+  print -Pn -- "$PROMPT_SUB "
   [[ -n "$buf" ]] && print -r -- "$buf"
 }
 
@@ -84,7 +87,7 @@ print_all_selections() {
     local -i shown=0 i
     for (( i=1; i<=${#items[@]}; i++ )); do
       if [[ "${sel[$i]}" == "1" ]]; then
-        (( shown == 0 )) && print -P "%B%F{blue} [$cat]%f%b"
+        (( shown == 0 )) && info "[$cat]"
         print -r -- "  - ${items[$i]}"
         (( shown++ ))
       fi
@@ -236,7 +239,7 @@ submenu_loop() {
 install_formula() {
   local formula="$1"
   if brew list --formula --versions "$formula" >/dev/null 2>&1; then
-    print -P "%F{yellow}$formula already installed%f"
+    warn "$formula already installed"
   else
     brew install "$formula"
   fi
@@ -245,7 +248,7 @@ install_formula() {
 install_cask() {
   local cask="$1"
   if brew list --cask --versions "$cask" >/dev/null 2>&1; then
-    print -P "%F{yellow}$cask already installed%f"
+    warn "$cask already installed"
   else
     brew install --cask "$cask"
   fi
@@ -291,56 +294,60 @@ run_installers() {
   clear
 
   # Homebrew installation
-  print -P "%B%F{blue}\nChecking homebrew installation...%f%b"
+  info "Checking homebrew installation..."
   if ! command -v brew >/dev/null 2>&1; then
-    print -P "%B%F{red}Homebrew is not installed.%f%b"
-    print -P "%B%F{green}Attempting to install homebrew...%f%b"
+    err "Homebrew is not installed."
+    info "Attempting to install homebrew..."
    
     curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh -o /tmp/install_homebrew.sh
     chmod +x /tmp/install_homebrew.sh
     /bin/bash /tmp/install_homebrew.sh
 
+    info "Setting PATH for homebrew..."
     print >> $HOME/.zprofile
     print 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> $HOME/.zprofile
     eval "$(/opt/homebrew/bin/brew shellenv)"
 
-    print "%B%F{green}Successfully installed homebrew. Continuing installation...%f%b"
+    ok "Successfully installed homebrew. Continuing installation..."
   else
-    print -P "%B%F{green}Found homebrew installation. Continuing...%f%b"
+    ok "Found homebrew installation. Continuing..."
   fi
 
   # Install xCode CLI tools
-  print -P "\n%B%F{blue}Checking command line tools installation...%f%b"
+  info "\nChecking command line tools installation..."
   if xcode-select -p &>/dev/null; then
-    print -P "%B%F{green}xCode command line tools is already installed. Continuing...%f%b"
+    warn "xCode command line tools is already installed. Continuing..."
   else
+    info "Installing xCode command line tools..."
     xcode-select --install
+    ok "xCode command line tools successfully installed. Continuing..."
   fi
 
   gather_pkgs
-
-  print -P "\n%B%F{green}Installing git and stow...%f%b"
+  
+  info "\nInstalling git and stow..."
   install_formula "git"
   install_formula "stow"
 
   # Formulae
   if (( ${#formulae[@]} )); then
-    print -P "\n%B%F{green}Installing formulae...%f%b"
+    print
+    info "Installing formulae..."
     for f in "${formulae[@]}"; do
       install_formula "$f"
     done
   else
-    print -P "%F{yellow}No formulae selected.%f"
+    warn "No formulae selected."
   fi
 
   # Casks
   if (( ${#casks[@]} )); then
-    print -P "\n%B%F{green}Installing casks...%f%b"
+    info "\nInstalling casks..."
     for c in "${casks[@]}"; do
       install_cask "$c"
     done
   else
-    print -P "%F{yellow}No casks selected.%f"
+    warn "No casks selected."
   fi
 }
 
@@ -357,7 +364,7 @@ main_loop() {
       local -i idx=$k
       if (( idx >= 1 && idx <= ${#CATEGORIES[@]} )); then
         local cat="${CATEGORIES[$idx]}"
-        [[ "$cat" == "Quit" ]] && { print -r -- "Exiting."; exit 0; }
+        [[ "$cat" == "Quit" ]] && { info "Script exited."; exit 0; }
         submenu_loop "$cat"
       fi
       continue
@@ -366,16 +373,22 @@ main_loop() {
     case "$k" in
       c)  # confirm
         print_all_selections
-        print -n -- "Proceed with installation? [y/N]: "
+        print -Pn -- "%B%F{blue}Proceed with installation? [y/N]: %f%b"
         read_key; local y="$REPLY"
-        if [[ "$y" == [yY] ]]; then run_installers; print -P "%B%F{green}\nAll done!%f%b"; exit 0
+        if [[ "$y" == [yY] ]]; then run_installers; 
+          print
+          ok "All done!"; exit 0
         else 
-          clear;
-          print -r -- "Cancelled."; fi
+          clear
+          info "Cancelled."; fi
         ;;
       l) print_all_selections ;;
+      r) 
+        init 
+        ok "Reset selections to default"
+        ;;
       h) help_main ;;
-      q) print -r -- "Exiting."; exit 0 ;;
+      q) info "Script exited."; exit 0 ;;
       $'\n'|$'\r'|' ') ;;  # ignore Enter/space here
       *) ;;                # ignore other keys
     esac
@@ -383,6 +396,35 @@ main_loop() {
 }
 
 clear
-[[ -n ${ZSH_VERSION-} ]] || { print "Please run with zsh"; exit 1; }
+
+compat() {
+  if [[ -z "${ZSH_VERSION:-}" ]]; then
+    err "This script requires zsh. Please run it with zsh."
+    exit 1
+  fi
+
+  if [[ "$(uname -m)" == "arm64" ]]; then
+    ok "Apple Silicon detected"
+  else
+    err "intel (x86_64) detected. This script is exclusively for Apple Silicon Macs. Please use a different machine."
+    exit 1
+  fi
+
+  if [[ "$(sysctl -in sysctl.proc_translated 2>/dev/null)" == "1" ]]; then
+    err "Running under Rosetta (x86_64 translation). Please disable Rosetta and run this script again."
+    exit 1
+  else
+    ok "Running natively"
+  fi
+}
+
+compat
+
+info "Initializing..."
 init
+ok "Script ready"
+print -n -- "Press any key to start"
+read -k
+clear
+
 main_loop
