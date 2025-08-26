@@ -14,20 +14,22 @@ source $(brew --prefix)/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 alias pyinit='source ~/.pyvenv/bin/activate'
 alias shrl='source ~/.zshrc'
 alias ff='fastfetch'
-alias tt='
+
+# alias for enabling/disabling tiling WM when testing
+alias tdisable='
     brew services stop sketchybar; \
     brew services stop borders; \
     yabai --stop-service; \
     skhd --stop-service \
 '
-alias ttexit='
+alias tenable='
     brew services start sketchybar; \
     brew services start borders; \
     yabai --start-service; \
-    skhd --start-service \
+    skhd --start-service; \
+    brew services restart sketchybar
 '
-
-alias clawdir='cd /Users/preluminance/.pyvenv/lib/python3.13/site-packages/clawpack'
+# for some reason, sketchybar spaces doesn't show up properly without restart
 
 cd ()
 {

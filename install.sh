@@ -170,7 +170,7 @@ if [[ $choice =~ ^[Yy]$ ]]; then
   defaults write com.apple.finder _FXShowPosixPathInTitle -bool true
   defaults write com.apple.finder FXPreferredViewStyle -string "Nlsv"
   defaults write com.apple.finder ShowStatusBar -bool false
-  defaults write com.apple.finder CreateDesktop -bool false
+  defaults write com.apple.finder CreateDesktop -bool true
   killall Finder
   defaults write com.apple.TimeMachine DoNotOfferNewDisksForBackup -bool true
   defaults write NSGlobalDomain WebKitDeveloperExtras -bool true
