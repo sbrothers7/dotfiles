@@ -493,8 +493,9 @@ run_installers() {
 
     if in_array "Rosetta 2" "${nonbrew[@]}"; then
     fi
-
-    ok "\n Finished setting macOS defaults"
+    
+    print
+    ok "Finished setting macOS defaults"
     
     
     # Fonts
@@ -526,22 +527,28 @@ run_installers() {
 
     # Dotfiles
 
+    DOTS_DIR="/Users/$USER/Downloads"
+    BACKUP_DIR="$DOTS_DIR/sbro7-dots-backups/" 
+    info "\nApplying sbrothers7 dotfiles..."
 
-    info "Applying sbrothers7 dotfiles..."
-
-    if [ -d "$HOME/dotfiles" ]; then 
-        cd "$HOME/dotfiles"
+    if [ -d "$DOTS_DIR/sbro7-dots" ]; then 
+        info "Found dotfiles directory. Upgrading..."
+        cd "$DOTS_DIR/dotfiles"
         git stash && git pull
     else 
-        git clone "https://github.com/sbrothers7/dotfiles" $HOME/dotfiles
+        if [ -d "$DOTS_DIR/.config" ]; then
+            warn "Found existing .config directory"
+            mkdir "$BACKUP_DIR"
+            mv "$DOTS_DIR/.config" "$BACKUP_DIR/.config"
+            ok "Backed up existing configuration files to $BACKUP_DIR.config"
+        fi
+        
+        info "Downloading sbrothers7 dotfiles..."
+        git clone "https://github.com/sbrothers7/dotfiles" $DOTS_DIR/sbro7-dots
     fi
 
-    
-
-    rm -rf .zprofile
-    cd dotfiles
-    stow .
-    
+    info "Stowing..."
+    cd "$DOTS_DIR/sbro7-dots" && stow .
 }
 
 # =============== MAIN LOOP ===============
