@@ -538,7 +538,7 @@ run_installers() {
 
     # Dotfiles
 
-    DOTS_DIR="/Users/$USER/Downloads/testing/sbro7dots"
+    DOTS_DIR="/Users/$USER/sbro7dots"
     BACKUP_DIR="$DOTS_DIR/../sbro7dots-backups/" 
     info "\nApplying sbrothers7 dotfiles..."
 
