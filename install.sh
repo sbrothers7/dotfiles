@@ -655,6 +655,11 @@ compat() {
     fi
 }
 
+info "This script needs sudo privileges during install."
+sudo -v || { err "sudo required"; exit 1; }
+
+clear
+info "Checking compatibility issues..."
 compat
 
 info "Initializing..."
