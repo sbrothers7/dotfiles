@@ -8,22 +8,22 @@ dim()   { print -P "%F{black}$*%f"; }
 
 
 # ============ CONFIG ============
-typeset -a CATEGORIES=( WM ZSH Utilities Casks Defaults Other Quit )
-typeset -a SUBCATS=( ${CATEGORIES:#Quit} )
+CATEGORIES=( WM ZSH Utilities Casks Defaults Other Quit )
+SUBCATS=( ${CATEGORIES:#Quit} )
 
-typeset -a CATEGORY_WM=( "yabai" "skhd" "borders" "sketchybar")
-typeset -a CATEGORY_ZSH=( "zsh-syntax-highlighting" "zsh-autosuggestions" "starship" )
-typeset -a CATEGORY_Utilities=( "neovim" "fastfetch" "lf" "yt-dlp" "btop" "ffmpeg" "mono" "armadillo" "lazygit" "llvm" "python" "node" "openjdk" "lua" "qemu" )
-typeset -a CATEGORY_Casks=( "kitty" "brave-browser" "karabiner-elements" "sol" "middleclick" "linearmouse" "slimhud" "yellowdot" "iina" "command-x" "alt-tab" "prismlauncher" "bluestacks" "discord" "gimp" "obs" "qutebrowser")
-typeset -a CATEGORY_Defaults=( "Minimalist" "No Animations" "QoL" "Revamped Finder")
-typeset -a CATEGORY_Other=( "Rosetta 2" "Fonts" "KISJ App Bundle")
+CATEGORY_WM=( "yabai" "skhd" "borders" "sketchybar")
+CATEGORY_ZSH=( "zsh-syntax-highlighting" "zsh-autosuggestions" "starship" )
+CATEGORY_Utilities=( "neovim" "fastfetch" "lf" "yt-dlp" "btop" "ffmpeg" "mono" "armadillo" "lazygit" "llvm" "python" "node" "openjdk" "lua" "qemu" )
+CATEGORY_Casks=( "kitty" "brave-browser" "karabiner-elements" "sol" "middleclick" "linearmouse" "slimhud" "yellowdot" "iina" "command-x" "alt-tab" "prismlauncher" "bluestacks" "discord" "gimp" "obs" "qutebrowser")
+CATEGORY_Defaults=( "Minimalist" "No Animations" "QoL" "Revamped Finder")
+CATEGORY_Other=( "Rosetta 2" "Fonts" "KISJ App Bundle")
 
-typeset -a DEFAULT_WM=( 1 2 3 4 )
-typeset -a DEFAULT_ZSH=( 1 2 3 )
-typeset -a DEFAULT_Utilities=( 1 2 3 4 )
-typeset -a DEFAULT_Casks=( 1 2 3 4 5 )
-typeset -a DEFAULT_Defaults=( 1 2 )
-typeset -a DEFAULT_Other=( 1 2 )
+DEFAULT_WM=( 1 2 3 4 )
+DEFAULT_ZSH=( 1 2 3 )
+DEFAULT_Utilities=( 1 2 3 4 )
+DEFAULT_Casks=( 1 2 3 4 5 )
+DEFAULT_Defaults=( 1 2 )
+DEFAULT_Other=( 1 2 )
 
 TITLE="Installation Setup"
 PROMPT_MAIN="%BEnter number to open a submenu%b\n([c]onfirm, [l]ist, [h]elp, [r]eset all, [q]uit):"
@@ -527,8 +527,8 @@ run_installers() {
 
     # Dotfiles
 
-    DOTS_DIR="/Users/$USER/Downloads"
-    BACKUP_DIR="$DOTS_DIR/sbro7-dots-backups/" 
+    DOTS_DIR="/Users/$USER/Downloads/testing/sbro7dots"
+    BACKUP_DIR="$DOTS_DIR/../sbro7dots-backups/" 
     info "\nApplying sbrothers7 dotfiles..."
 
     if [ -d "$DOTS_DIR/sbro7-dots" ]; then 
@@ -536,7 +536,7 @@ run_installers() {
         cd "$DOTS_DIR/dotfiles"
         git stash && git pull
     else 
-        if [ -d "$DOTS_DIR/.config" ]; then
+        if [ -d "$DOTS_DIR/../.config" ]; then
             warn "Found existing .config directory"
             mkdir "$BACKUP_DIR"
             mv "$DOTS_DIR/.config" "$BACKUP_DIR/.config"
@@ -544,11 +544,22 @@ run_installers() {
         fi
         
         info "Downloading sbrothers7 dotfiles..."
-        git clone "https://github.com/sbrothers7/dotfiles" $DOTS_DIR/sbro7-dots
+        git clone "https://github.com/sbrothers7/dotfiles" $DOTS_DIR
     fi
 
+    cd "$DOTS_DIR/.config"
+    dirs=(*(/))
+
+    selpkg=("${selected_WM[@]}" "${selected_ZSH}" "${selected_Utilities[@]}" "${selected_Casks[@]}" "${selected_Defaults[@]}" "${selected_Other[@]}")
+
+    for pkg in "${dirs[@]}"; do
+        if ! in_array "$pkg" "${selpkg[@]}"; then
+            rm -rf "$DOTS_DIR/.config/$pkg"
+        fi
+    done
+
     info "Stowing..."
-    cd "$DOTS_DIR/sbro7-dots" && stow .
+    cd $DOTS_DIR && stow .
 }
 
 # =============== MAIN LOOP ===============

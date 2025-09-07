@@ -5,6 +5,8 @@ export SUDO_EDITOR="$EDITOR"
 # if this shell is not interactive, stop processing ~/.zshrc
 export PATH=$PATH:~/.local/bin/
 
+export STARSHIP_CONFIG=~/.config/starship/starship.toml # custom starship config path
+
 alias config='/usr/bin/git --git-dir=/Users/preluminance/.cfg/ --work-tree=/Users/preluminance'
 source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 source $(brew --prefix)/share/zsh-autosuggestions/zsh-autosuggestions.zsh
@@ -27,9 +29,7 @@ alias tenable='
     brew services start borders; \
     yabai --start-service; \
     skhd --start-service; \
-    brew services restart sketchybar
-'
-# for some reason, sketchybar spaces doesn't show up properly without restart
+    brew services restart sketchybar' # for some reason, sketchybar spaces doesn't show up properly without restart
 
 cd ()
 {
@@ -40,7 +40,6 @@ cd ()
 	fi
 }
 
-
 clear
-ff
-# fastfetch -c $HOME/.config/fastfetch/config-compact.jsonc
+# ff
+fastfetch -c $HOME/.config/fastfetch/config-compact.jsonc

@@ -16,7 +16,7 @@
         {
             "type": "title",
             "keyWidth": 10,
-			"format": "         {6}{7}{8}"
+	    "format": "{6}{7}{8}\n"
         },
         {
             "type": "custom",
