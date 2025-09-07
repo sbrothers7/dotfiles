@@ -249,7 +249,7 @@ install_cask() {
     if brew list --cask --versions "$cask" >/dev/null 2>&1; then
         warn "$cask already installed"
     else
-        brew install --cask "$cask"
+        /opt/homebrew/bin/brew install --cask "$cask"
     fi
 }
 
@@ -372,7 +372,7 @@ qol() {
     defaults write NSGlobalDomain AppleShowAllExtensions -bool true
     defaults write com.apple.NetworkBrowser BrowseAllInterfaces 1
     defaults write com.apple.desktopservices DSDontWriteNetworkStores -bool true
-    defaults write com.apple.spaces spans-displays -bool falsei
+    defaults write com.apple.spaces spans-displays -bool false
 
     # Screencapture
     defaults write com.apple.screencapture location -string "$HOME/Desktop"
@@ -431,20 +431,27 @@ run_installers() {
     fi
     
     # Install xCode CLI tools
-    info "\nChecking command line tools installation..."
-    if xcode-select -p &>/dev/null; then
-        warn "xCode command line tools is already installed. Continuing..."
-    else
-        info "Installing xCode command line tools..."
-        xcode-select --install
-        ok "xCode command line tools successfully installed. Continuing..."
-    fi
+    # info "\nChecking command line tools installation..."
+    # if xcode-select -p &>/dev/null; then
+    #     warn "xCode command line tools is already installed. Continuing..."
+    # else
+    #     info "Installing xCode command line tools..."
+    #     xcode-select --install
+    #     ok "xCode command line tools successfully installed. Continuing..."
+    # fi
+    #
+    # homebrew automatically installs xCode command line tools
     
     gather_pkgs
     
     info "\nInstalling git and stow..."
     install_formula "git"
     install_formula "stow"
+
+
+    info "\nTapping brew..."
+    brew tap koekeishiya/formulae
+    brew tap felixkratz/formulae
     
     # Formulae
     if (( ${#formulae[@]} )); then
@@ -502,13 +509,8 @@ run_installers() {
     if in_array "Fonts" "${nonbrew[@]}"; then
         info "\nInstalling fonts..."
 
-        fonts=("sf-symbols" "font-sf-mono" "font-sf-pro" "font-hack-nerd-font" "font-jetbrains-mono" "font-fira-code")
-        # printf '%s\n' "${fonts[@]}"
+        brew install --cask "sf-symbols" "font-sf-mono" "font-sf-pro" "font-hack-nerd-font" "font-jetbrains-mono" "font-fira-code"
 
-        for font in "${fonts[@]}"; do
-            install_cask "$font"
-        done
-        
         git clone "https://github.com/shaunsingh/SFMono-Nerd-Font-Ligaturized.git" /tmp/SFMono_Nerd_Font
         mv /tmp/SFMono_Nerd_Font/* $HOME/Library/Fonts
         rm -rf /tmp/SFMono_Nerd_Font/
@@ -577,8 +579,31 @@ run_installers() {
         fi
     done
 
-    info "Stowing..."
+    info "\nStowing..."
+    cd ~ && rm -rf .zprofile
     cd $DOTS_DIR && stow .
+
+    source .zshrc
+
+    info "\nStarting services (grant permissions)..."
+    if in_array "skhd" "${pkgtoinstall[@]}"; then
+        skhd --start-service
+    fi
+    if in_array "borders" "${pkgtoinstall[@]}"; then
+        brew services start borders
+    fi
+    if in_array "sketchybar" "${pkgtoinstall[@]}"; then
+        brew services start sketchybar
+    fi
+    if in_array "yabai" "${pkgtoinstall[@]}"; then
+        info "Configuring yabai scripting additions..."
+        echo "$(whoami) ALL=(root) NOPASSWD: sha256:$(shasum -a 256 $(which yabai) | cut -d " " -f 1) $(which yabai) --load-sa" | sudo tee /private/etc/sudoers.d/yabai
+        
+        yabai --start-service
+
+        warn "Make sure to disable csrutil partially with the following command:"
+        print "csrutil enable --without fs --without debug --without nvram"
+    fi
 }
 
 # =============== MAIN LOOP ===============
@@ -657,6 +682,8 @@ compat() {
 
 info "This script needs sudo privileges during install."
 sudo -v || { err "sudo required"; exit 1; }
+while true; do sudo -n -v; sleep 60; kill -0 "$$" || exit; done 2>/dev/null & keepalive_pid=$!
+trap 'kill $keepalive_pid 2>/dev/null' EXIT
 
 clear
 info "Checking compatibility issues..."

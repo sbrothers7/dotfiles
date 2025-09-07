@@ -37,8 +37,8 @@
 
 # Installation
 ### Installation Script
-<pre lang="markdown">sudo zsh <(curl -sL https://raw.githubusercontent.com/sbrothers7/dotfiles/main/install.sh)</pre>
-Run the script in terminal. It might ask for the user password when trying to install some of the casks. During the installation process, you will be prompted whether to install a set of programs or to not.
+<pre lang="markdown">zsh <(curl -sL https://raw.githubusercontent.com/sbrothers7/dotfiles/main/install.sh)</pre>
+Run the script in terminal. If you choose to install casks, the script will ask for the user password. During the installation process, you will be prompted whether to install a set of programs or to not.
 
 ### Notes
 - yabai top padding is set for a Macbook Pro 14" with Apple Silicon and MacOS 13.x+. For devices that do not have a notch, adjust the top padding value. It is located at ```~/dotfiles/.config/yabai/yabairc```.
