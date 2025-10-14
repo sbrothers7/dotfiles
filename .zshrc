@@ -5,6 +5,18 @@ export SUDO_EDITOR="$EDITOR"
 # if this shell is not interactive, stop processing ~/.zshrc
 export PATH=$PATH:~/.local/bin/
 
+# load modules
+zmodload zsh/complist
+autoload -U compinit && compinit
+autoload -U colors && colors
+
+# cmp opts
+zstyle ':completion:*' menu select # tab opens cmp menu
+zstyle ':completion:*' special-dirs true # force . and .. to show in cmp menu
+zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS} ma=0\;33 # colorize cmp menu
+# zstyle ':completion:*' file-list true # more detailed list
+zstyle ':completion:*' squeeze-slashes false # explicit disable to allow /*/ expansion
+
 export STARSHIP_CONFIG=~/.config/starship/starship.toml # custom starship config path
 
 alias config='/usr/bin/git --git-dir=/Users/preluminance/.cfg/ --work-tree=/Users/preluminance'
@@ -31,15 +43,18 @@ alias tenable='
     skhd --start-service; \
     brew services restart sketchybar' # for some reason, sketchybar spaces doesn't show up properly without restart
 
+alias nwtools=~/Coding/Other/scripts/nwtools.sh
+
 cd ()
 {
-	if [ -n "$1" ]; then
-		builtin cd "$@" && ls
-	else
-		builtin cd ~ && ls
-	fi
+    if [ -n "$1" ]; then
+	builtin cd "$@" && ls
+    else
+	builtin cd ~ && ls
+    fi
 }
 
 clear
+
 # ff
 fastfetch -c $HOME/.config/fastfetch/config-compact.jsonc
