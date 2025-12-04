@@ -1,24 +1,10 @@
-eval "$(starship init zsh)"
+# eval "$(starship init zsh)"
 export EDITOR="nvim"
 export SUDO_EDITOR="$EDITOR"
 
 export PATH=$PATH:~/.local/bin/
 
-# load modules
-zmodload zsh/complist
-autoload -U compinit && compinit
-autoload -U colors && colors
-
-# cmp opts
-zstyle ':completion:*' menu select # tab opens cmp menu
-zstyle ':completion:*' special-dirs true # force . and .. to show in cmp menu
-zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS} ma=0\;33 # colorize cmp menu
-# zstyle ':completion:*' file-list true # more detailed list
-zstyle ':completion:*' squeeze-slashes false # explicit disable to allow /*/ expansion
-
-export STARSHIP_CONFIG=~/.config/starship/starship.toml # custom starship config path
-
-alias config='/usr/bin/git --git-dir=/Users/preluminance/.cfg/ --work-tree=/Users/preluminance'
+alias config='/usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
 source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 source $(brew --prefix)/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 
@@ -50,7 +36,6 @@ cd ()
     fi
 }
 
-clear
+source $HOME/agkozak-zsh-prompt/agkozak-zsh-prompt.plugin.zsh
 
-# ff
-# fastfetch -c $HOME/.config/fastfetch/config-compact.jsonc
+clear
