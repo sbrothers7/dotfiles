@@ -35,7 +35,6 @@ yabai -m rule --add app="^A Dance of Fire and Ice$" manage=off space=3
 yabai -m rule --add app="^OBS Studio$" space=4
 yabai -m rule --add app="^Steam$" manage=off
 yabai -m rule --add app="^Python$" manage=off
-yabai -m rule --add app="^Ryujinx$" manage=off
 yabai -m rule --add app="^Rhino 8$" manage=off
 yabai -m rule --add app="^Discord$" space=5
 yabai -m rule --add app="^Adobe Premiere Pro 2025$" manage=off
@@ -49,14 +48,10 @@ yabai -m config window_shadow off
 # window opacity (default: off)
 yabai -m config window_opacity on
 yabai -m config active_window_opacity 1.0
-yabai -m config normal_window_opacity 0.7
+yabai -m config normal_window_opacity 0.9
 
 # view the last lines of the error log 
 tail -f /tmp/yabai_$USER.err.log
 
 # view the last lines of the debug log
 tail -f /tmp/yabai_$USER.out.log
-
-# make events for sketchybar detecting title changes
-yabai -m signal --add event=window_focused action="sketchybar --trigger window_focus"
-y
