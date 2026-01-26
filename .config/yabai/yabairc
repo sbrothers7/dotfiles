@@ -5,23 +5,19 @@ yabai -m config layout bsp
 yabai -m config window_placement second_child
 
 # padding
-yabai -m config top_padding 10
-yabai -m config bottom_padding 10
-yabai -m config left_padding 10
-yabai -m config right_padding 10
-yabai -m config window_gap 10
+yabai -m config top_padding 8
+yabai -m config bottom_padding 8
+yabai -m config left_padding 8
+yabai -m config right_padding 8
+yabai -m config window_gap 8
 
 # center mouse on window with focus
 yabai -m config mouse_follows_focus off
 
-# focus with mouse
+# mouse stuff
 yabai -m config focus_follows_mouse autoraise
-
-# modifier for clicking and dragging with mouse
-yabai -m config mouse_modifier alt
-# set modifier + left-click drag to move window
+yabai -m config mouse_modifier ctrl
 yabai -m config mouse_action1 move
-# set modifier + right-click drag to resize window
 yabai -m config mouse_action2 resize
 
 # when window is dropped in center of another window, swap them (on edges it will split it)
@@ -34,12 +30,12 @@ yabai -m rule --add app="^Music$" manage=off
 yabai -m rule --add app="^A Dance of Fire and Ice$" manage=off space=3
 yabai -m rule --add app="^OBS Studio$" space=4
 yabai -m rule --add app="^Steam$" manage=off
-yabai -m rule --add app="^Python$" manage=off
 yabai -m rule --add app="^Rhino 8$" manage=off
 yabai -m rule --add app="^Discord$" space=5
 yabai -m rule --add app="^Adobe Premiere Pro 2025$" manage=off
 yabai -m rule --add app="^Preview$" manage=off 
 yabai -m rule --add app="^Digital Colou?r Meter$" sticky=on
+yabai -m rule --add app="^Splitter" sticky=on
 
 # modify window shadows (default: on, options: on, off, float)
 # example: show shadows only for floating windows
@@ -48,7 +44,7 @@ yabai -m config window_shadow off
 # window opacity (default: off)
 yabai -m config window_opacity on
 yabai -m config active_window_opacity 1.0
-yabai -m config normal_window_opacity 0.9
+yabai -m config normal_window_opacity 0.95
 
 # view the last lines of the error log 
 tail -f /tmp/yabai_$USER.err.log

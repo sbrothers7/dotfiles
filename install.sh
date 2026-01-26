@@ -12,16 +12,16 @@ CATEGORIES=( WM ZSH Utilities Casks Defaults Other Quit )
 SUBCATS=( ${CATEGORIES:#Quit} )
 
 CATEGORY_WM=( "yabai" "skhd" "borders" "sketchybar")
-CATEGORY_ZSH=( "zsh-syntax-highlighting" "zsh-autosuggestions" "starship" )
+CATEGORY_ZSH=( "zsh-syntax-highlighting" "zsh-autosuggestions" "starship" "agkozak-zsh-prompt")
 CATEGORY_Utilities=( "neovim" "fastfetch" "lf" "yt-dlp" "btop" "ffmpeg" "mono" "armadillo" "lazygit" "llvm" "python" "node" "openjdk" "lua" "qemu" )
-CATEGORY_Casks=( "kitty" "brave-browser" "karabiner-elements" "sol" "middleclick" "linearmouse" "slimhud" "yellowdot" "iina" "command-x" "alt-tab" "prismlauncher" "bluestacks" "discord" "gimp" "obs" "qutebrowser")
+CATEGORY_Casks=( "kitty" "brave-browser" "karabiner-elements" "ice" "middleclick" "stats" "linearmouse" "slimhud" "yellowdot" "iina" "command-x" "alt-tab" "prismlauncher" "bluestacks" "discord" "gimp" "obs" "qutebrowser")
 CATEGORY_Defaults=( "Minimalist" "No Animations" "QoL" "Revamped Finder")
 CATEGORY_Other=( "Fonts" "Rosetta 2" "KISJ App Bundle")
 
-DEFAULT_WM=( 1 2 3 4 )
-DEFAULT_ZSH=( 1 2 3 )
+DEFAULT_WM=( 1 2 )
+DEFAULT_ZSH=( 1 2 4 )
 DEFAULT_Utilities=( 1 2 3 4 )
-DEFAULT_Casks=( 1 2 3 4 5 )
+DEFAULT_Casks=( 1 2 3 4 5 6 )
 DEFAULT_Defaults=( 1 2 )
 DEFAULT_Other=( 1 )
 
@@ -271,7 +271,7 @@ gather_pkgs() {
                     eval 'casks+=( "${'"$items_var"'[$j]}" )'
                 elif (( i > 4 )); then
                     eval 'nonbrew+=( "${'"$items_var"'[$j]}" )' # non brew-related
-                else
+                else # add exception for theme
                     eval 'formulae+=( "${'"$items_var"'[$j]}" )'
                 fi
             fi
@@ -447,7 +447,6 @@ run_installers() {
     info "\nInstalling git and stow..."
     install_formula "git"
     install_formula "stow"
-
 
     info "\nTapping brew..."
     brew tap koekeishiya/formulae

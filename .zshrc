@@ -38,4 +38,3 @@ cd ()
 
 source $HOME/agkozak-zsh-prompt/agkozak-zsh-prompt.plugin.zsh
 
-clear

@@ -48,6 +48,31 @@
                             "to": [{ "key_code": "f13" }]
                         }
                     ]
+                },
+                {
+                    "identifiers": {
+                        "is_keyboard": true,
+                        "product_id": 33367,
+                        "vendor_id": 1046
+                    },
+                    "simple_modifications": [
+                        {
+                            "from": { "key_code": "caps_lock" },
+                            "to": [{ "key_code": "escape" }]
+                        },
+                        {
+                            "from": { "key_code": "left_command" },
+                            "to": [{ "key_code": "left_control" }]
+                        },
+                        {
+                            "from": { "key_code": "left_control" },
+                            "to": [{ "key_code": "left_command" }]
+                        },
+                        {
+                            "from": { "key_code": "right_option" },
+                            "to": [{ "key_code": "f13" }]
+                        }
+                    ]
                 }
             ],
             "name": "Default profile",
@@ -134,56 +159,35 @@
                             "to": [{ "key_code": "quote" }]
                         }
                     ]
-                }
-            ],
-            "name": "ADOFAI",
-            "virtual_hid_keyboard": { "keyboard_type_v2": "ansi" }
-        },
-        {
-            "name": "New profile",
-            "virtual_hid_keyboard": { "keyboard_type_v2": "ansi" }
-        },
-        {
-            "devices": [
+                },
                 {
-                    "identifiers": { "is_keyboard": true },
+                    "identifiers": {
+                        "is_keyboard": true,
+                        "product_id": 12301,
+                        "vendor_id": 14391
+                    },
                     "simple_modifications": [
                         {
-                            "from": { "key_code": "backslash" },
-                            "to": [{ "pointing_button": "button1" }]
-                        },
+                            "from": { "key_code": "right_option" },
+                            "to": [{ "key_code": "comma" }]
+                        }
+                    ]
+                },
+                {
+                    "identifiers": {
+                        "is_keyboard": true,
+                        "product_id": 33367,
+                        "vendor_id": 1046
+                    },
+                    "simple_modifications": [
                         {
-                            "from": { "key_code": "close_bracket" },
-                            "to": [{ "pointing_button": "button1" }]
-                        },
-                        {
-                            "from": { "key_code": "e" },
-                            "to": [{ "pointing_button": "button1" }]
-                        },
-                        {
-                            "from": { "key_code": "open_bracket" },
-                            "to": [{ "pointing_button": "button1" }]
-                        },
-                        {
-                            "from": { "key_code": "p" },
-                            "to": [{ "pointing_button": "button1" }]
-                        },
-                        {
-                            "from": { "key_code": "q" },
-                            "to": [{ "pointing_button": "button1" }]
-                        },
-                        {
-                            "from": { "key_code": "tab" },
-                            "to": [{ "pointing_button": "button1" }]
-                        },
-                        {
-                            "from": { "key_code": "w" },
-                            "to": [{ "pointing_button": "button1" }]
+                            "from": { "key_code": "f5" },
+                            "to": [{ "key_code": "f13" }]
                         }
                     ]
                 }
             ],
-            "name": "Click",
+            "name": "ADOFAI",
             "virtual_hid_keyboard": { "keyboard_type_v2": "ansi" }
         }
     ]
