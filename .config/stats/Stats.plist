@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Battery_barChart_position</key>
+	<integer>2</integer>
+	<key>Battery_batteryDetails_position</key>
+	<integer>1</integer>
+	<key>Battery_battery_position</key>
+	<integer>3</integer>
+	<key>Battery_color</key>
+	<true/>
+	<key>Battery_label_position</key>
+	<integer>4</integer>
+	<key>Battery_mini_position</key>
+	<integer>0</integer>
+	<key>Battery_state</key>
+	<true/>
+	<key>Battery_widget</key>
+	<string>mini</string>
+	<key>Bluetooth_label_position</key>
+	<integer>1</integer>
+	<key>Bluetooth_stack_position</key>
+	<integer>0</integer>
+	<key>Bluetooth_state</key>
+	<false/>
+	<key>Bluetooth_widget</key>
+	<string>sensors</string>
+	<key>CPU_barChart_position</key>
+	<integer>2</integer>
+	<key>CPU_label_position</key>
+	<integer>4</integer>
+	<key>CPU_lineChart_position</key>
+	<integer>3</integer>
+	<key>CPU_mini_alignment</key>
+	<string>left</string>
+	<key>CPU_mini_color</key>
+	<string>monochrome</string>
+	<key>CPU_mini_position</key>
+	<integer>0</integer>
+	<key>CPU_pieChart_position</key>
+	<integer>5</integer>
+	<key>CPU_processes</key>
+	<integer>5</integer>
+	<key>CPU_state</key>
+	<true/>
+	<key>CPU_tachometer_position</key>
+	<integer>1</integer>
+	<key>CPU_updateTopInterval</key>
+	<integer>3</integer>
+	<key>CPU_widget</key>
+	<string>mini</string>
+	<key>Clock_label_position</key>
+	<integer>1</integer>
+	<key>Clock_list</key>
+	<data>
+	W3siZW5hYmxlZCI6dHJ1ZSwiZm9ybWF0IjoiZGRcL01NXC95eXl5IEhIOm1tOnNzIiwi
+	bmFtZSI6IkxvY2FsIHRpbWUiLCJ0eiI6ImxvY2FsIiwiaWQiOiI1MEE1QkY3Qi0xREIx
+	LTRBMzYtOUM4MC00RTI1MDQ2NzdDNTMifV0=
+	</data>
+	<key>Clock_stack_position</key>
+	<integer>0</integer>
+	<key>Clock_state</key>
+	<false/>
+	<key>Clock_widget</key>
+	<string></string>
+	<key>CombinedModules</key>
+	<false/>
+	<key>CombinedModules_popup</key>
+	<false/>
+	<key>Disk_barChart_position</key>
+	<integer>3</integer>
+	<key>Disk_label_position</key>
+	<integer>2</integer>
+	<key>Disk_memory_position</key>
+	<integer>5</integer>
+	<key>Disk_mini_position</key>
+	<integer>1</integer>
+	<key>Disk_networkChart_position</key>
+	<integer>6</integer>
+	<key>Disk_pieChart_position</key>
+	<integer>4</integer>
+	<key>Disk_speed_position</key>
+	<integer>0</integer>
+	<key>Disk_state</key>
+	<false/>
+	<key>Disk_text_position</key>
+	<integer>7</integer>
+	<key>Disk_widget</key>
+	<string>speed</string>
+	<key>GPU_gpu</key>
+	<string>Apple M3 Pro</string>
+	<key>GPU_state</key>
+	<true/>
+	<key>LaunchAtLoginNext</key>
+	<true/>
+	<key>NSStatusItem Preferred Position Battery</key>
+	<real>310</real>
+	<key>NSStatusItem Preferred Position Battery_mini</key>
+	<integer>263</integer>
+	<key>NSStatusItem Preferred Position CPU</key>
+	<real>429</real>
+	<key>NSStatusItem Preferred Position CPU_mini</key>
+	<integer>374</integer>
+	<key>NSStatusItem Preferred Position Disk</key>
+	<real>523</real>
+	<key>NSStatusItem Preferred Position GPU_mini</key>
+	<integer>417</integer>
+	<key>NSStatusItem Preferred Position Network</key>
+	<real>594</real>
+	<key>NSStatusItem Preferred Position Network_speed</key>
+	<integer>503</integer>
+	<key>NSStatusItem Preferred Position RAM</key>
+	<real>476</real>
+	<key>NSStatusItem Preferred Position RAM_mini</key>
+	<integer>460</integer>
+	<key>NSStatusItem Preferred Position Sensors</key>
+	<real>387</real>
+	<key>NSStatusItem Preferred Position Sensors_sensors</key>
+	<integer>336</integer>
+	<key>NSStatusItem Restore Position Battery_battery_details</key>
+	<integer>316</integer>
+	<key>NSStatusItem Restore Position Disk_speed</key>
+	<integer>570</integer>
+	<key>NSToolbar Configuration eu.exelban.Stats.Settings.Toolbar</key>
+	<dict>
+		<key>TB Display Mode</key>
+		<integer>1</integer>
+		<key>TB Icon Size Mode</key>
+		<integer>1</integer>
+		<key>TB Is Shown</key>
+		<true/>
+		<key>TB Size Mode</key>
+		<integer>1</integer>
+	</dict>
+	<key>Network_base</key>
+	<string>byte</string>
+	<key>Network_label_position</key>
+	<integer>2</integer>
+	<key>Network_networkChart_position</key>
+	<integer>1</integer>
+	<key>Network_notifications_localIP_state</key>
+	<false/>
+	<key>Network_processes</key>
+	<integer>5</integer>
+	<key>Network_reader</key>
+	<string>interface</string>
+	<key>Network_speed_position</key>
+	<integer>0</integer>
+	<key>Network_state</key>
+	<true/>
+	<key>Network_state_position</key>
+	<integer>3</integer>
+	<key>Network_text_position</key>
+	<integer>4</integer>
+	<key>Network_widget</key>
+	<string>speed</string>
+	<key>Network_widgetActivationThresholdState</key>
+	<false/>
+	<key>RAM_combinedProcesses</key>
+	<true/>
+	<key>RAM_processes</key>
+	<integer>5</integer>
+	<key>RAM_state</key>
+	<true/>
+	<key>Sensors_barChart_position</key>
+	<integer>3</integer>
+	<key>Sensors_fanValue</key>
+	<string>rpm</string>
+	<key>Sensors_fansSync</key>
+	<true/>
+	<key>Sensors_label_position</key>
+	<integer>2</integer>
+	<key>Sensors_mini_position</key>
+	<integer>1</integer>
+	<key>Sensors_sensors_mode</key>
+	<string>twoRows</string>
+	<key>Sensors_sensors_monospacedFont</key>
+	<false/>
+	<key>Sensors_sensors_size</key>
+	<false/>
+	<key>Sensors_speed</key>
+	<true/>
+	<key>Sensors_stack_position</key>
+	<integer>0</integer>
+	<key>Sensors_state</key>
+	<true/>
+	<key>Sensors_widget</key>
+	<string>sensors</string>
+	<key>dockIcon</key>
+	<false/>
+	<key>fan_0_mode</key>
+	<integer>0</integer>
+	<key>fan_0_speed</key>
+	<integer>2331</integer>
+	<key>fan_1_mode</key>
+	<integer>0</integer>
+	<key>fan_1_speed</key>
+	<integer>2494</integer>
+	<key>pause</key>
+	<false/>
+	<key>remote_id</key>
+	<string>CDB79DC9-5B12-457E-B854-75C70AC46C46</string>
+	<key>runAtLoginInitialized</key>
+	<true/>
+	<key>sensor_Average CPU</key>
+	<true/>
+	<key>sensor_Average GPU</key>
+	<true/>
+	<key>sensor_CPU Power</key>
+	<false/>
+	<key>sensor_F0Ac</key>
+	<false/>
+	<key>sensor_F1Ac</key>
+	<false/>
+	<key>sensor_Fastest fan_popup</key>
+	<true/>
+	<key>sensor_Hottest CPU</key>
+	<false/>
+	<key>sensor_IDBR</key>
+	<false/>
+	<key>sensor_PSTR</key>
+	<false/>
+	<key>sensor_PU1R</key>
+	<false/>
+	<key>sensor_TaLP</key>
+	<false/>
+	<key>sensor_Total System Consumption</key>
+	<false/>
+	<key>sensor_VG0C</key>
+	<false/>
+	<key>setupProcess</key>
+	<true/>
+	<key>stack_Average CPU_index</key>
+	<integer>0</integer>
+	<key>stack_Average GPU_index</key>
+	<integer>1</integer>
+	<key>support_ts</key>
+	<integer>1767782867</integer>
+	<key>systemWidgetsUpdates_state</key>
+	<true/>
+	<key>telemetry</key>
+	<false/>
+	<key>temperature_units</key>
+	<string>celsius</string>
+	<key>updater_check_ts</key>
+	<integer>1768444244</integer>
+	<key>version</key>
+	<string>2.11.64</string>
+</dict>
+</plist>

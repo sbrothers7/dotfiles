@@ -1,5 +1,7 @@
 import catppuccin
 
+c.url.start_pages = ["https://www.qutebrowser.org/"]
+
 # load your autoconfig, use this, if the rest of your config is empty!
 config.load_autoconfig()
 
@@ -7,3 +9,4 @@ config.load_autoconfig()
 # valid options are 'mocha', 'macchiato', 'frappe', and 'latte'
 # last argument (optional, default is False): enable the plain look for the menu rows
 catppuccin.setup(c, 'mocha', True)
+
