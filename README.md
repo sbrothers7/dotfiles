@@ -11,7 +11,7 @@
 - and more...
 
 **ZSH enhancements:**
-- [starship](https://github.com/catppuccin/starship) theme
+- [starship](https://github.com/catppuccin/starship) or (agkozak-zsh-prompt)[https://github.com/agkozak/agkozak-zsh-prompt]
 - auto syntax highlighting & suggestions
 - [autojump](https://github.com/wting/autojump)
 - aliases (refer to .zshrc)
@@ -22,9 +22,6 @@
 - [armadillo](https://arma.sourceforge.net/download.html) (C++ library for linear algebra and scientific computing)
 - [mono](https://gitlab.winehq.org/mono/mono) (Cross platform .NET framework)
 - [iina](https://iina.io/)
-- zoom
-- sol (MacOS spotlight alternative)
-- slimhud (MacOS volume, brightness adjustment HUD alternative)
 - middleclick (three-finger click for middle click on touchpad)
 - command-x (cut & paste support for Finder)
 - linearmouse (better mouse settings)
@@ -34,11 +31,10 @@
 - Fonts and symbols installations
 - Automatic MacOS default system settings override
 
-
 # Installation
 ### Installation Script
 <pre lang="markdown">zsh <(curl -sL https://raw.githubusercontent.com/sbrothers7/dotfiles/main/install.sh)</pre>
-Run the script in terminal. If you choose to install casks, the script will ask for the user password. During the installation process, you will be prompted whether to install a set of programs or to not.
+Run the script in terminal. If you choose to install casks, the script will ask for the user password.
 
 ### Notes
 - yabai top padding is set for a Macbook Pro 14" with Apple Silicon and MacOS 13.x+. For devices that do not have a notch, adjust the top padding value. It is located at ```~/dotfiles/.config/yabai/yabairc```.
