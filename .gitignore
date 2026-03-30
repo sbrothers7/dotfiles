@@ -1,10 +1,8 @@
 .config/karabiner/automatic_backups
 .DS_Store
+*/.DS_Store
+*/*/.DS_Store
 
-.config/nvim/lua/.DS_Store
-.config/sketchybar/README.md
 .config/Luxion
 .config/TUFHelper
 .config/wireshark
-.config/nvim/lua/.DS_Store
-.config/nvim/lua/.DS_Store
