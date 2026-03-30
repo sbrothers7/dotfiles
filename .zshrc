@@ -28,18 +28,25 @@ alias tenable='
     yabai --start-service; \
     skhd --start-service
 '
-alias pyinit='source venv/bin/activate'
 
+# alias for global virtual env
+alias pyinit='source venv/bin/activate'
 alias nwtools=~/Coding/Other/scripts/nwtools.sh
 
-cnc() {
+rsv() { # resize video, default is 480p
+    local size="${2:-854:480}"
+    ffmpeg -i "$1" -vf "scale=$size" output.mp4
+}
+
+cnrs() { # compress and resize
+    local size="${2:-854:480}"
     ffmpeg -i "$1" \
 	-c:v libx265 -crf 28 -pix_fmt yuv420p \
 	-profile:v main -tag:v hvc1 \
 	-c:a aac -b:a 160k \
 	-movflags +faststart \
     temp.mp4
-    ffmpeg -i temp.mp4 -vf "scale=854:480" output.mp4
+    ffmpeg -i temp.mp4 -vf "scale=$size" output.mp4
     rm temp.mp4
 }
 
@@ -52,5 +59,6 @@ cd ()
     fi
 }
 
+# agkozak-zsh prompt
 source $HOME/agkozak-zsh-prompt/agkozak-zsh-prompt.plugin.zsh
 

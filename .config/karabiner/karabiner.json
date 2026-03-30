@@ -89,8 +89,20 @@
                             "to": [{ "key_code": "left_command" }]
                         },
                         {
+                            "from": { "key_code": "f11" },
+                            "to": [{ "key_code": "volume_decrement" }]
+                        },
+                        {
+                            "from": { "key_code": "f12" },
+                            "to": [{ "key_code": "volume_increment" }]
+                        },
+                        {
                             "from": { "key_code": "left_command" },
                             "to": [{ "apple_vendor_top_case_key_code": "keyboard_fn" }]
+                        },
+                        {
+                            "from": { "key_code": "right_command" },
+                            "to": [{ "key_code": "period" }]
                         },
                         {
                             "from": { "key_code": "right_option" },
