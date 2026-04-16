@@ -11,7 +11,7 @@
 - and more...
 
 **ZSH enhancements:**
-- [starship](https://github.com/catppuccin/starship) or (agkozak-zsh-prompt)[https://github.com/agkozak/agkozak-zsh-prompt]
+- [starship](https://github.com/catppuccin/starship) or [agkozak-zsh-prompt](https://github.com/agkozak/agkozak-zsh-prompt)
 - auto syntax highlighting & suggestions
 - [autojump](https://github.com/wting/autojump)
 - aliases (refer to .zshrc)
