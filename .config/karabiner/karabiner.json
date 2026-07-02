@@ -2,6 +2,23 @@
     "global": { "show_in_menu_bar": false },
     "profiles": [
         {
+            "complex_modifications": {
+                "rules": [
+                    {
+                        "description": "Switch between two profiles",
+                        "manipulators": [
+                            {
+                                "from": {
+                                    "key_code": "spacebar",
+                                    "modifiers": { "mandatory": ["fn"] }
+                                },
+                                "to": [{ "shell_command": "bash -c 'cli=\"/Library/Application Support/org.pqrs/Karabiner-Elements/bin/karabiner_cli\"; \"$cli\" --select-profile \"$(comm -23 <(\"$cli\" --list-profile-names) <(\"$cli\" --show-current-profile-name) | head -n 1)\"'" }],
+                                "type": "basic"
+                            }
+                        ]
+                    }
+                ]
+            },
             "devices": [
                 {
                     "identifiers": { "is_keyboard": true },
@@ -80,6 +97,23 @@
             "virtual_hid_keyboard": { "keyboard_type_v2": "ansi" }
         },
         {
+            "complex_modifications": {
+                "rules": [
+                    {
+                        "description": "Switch between two profiles",
+                        "manipulators": [
+                            {
+                                "from": {
+                                    "key_code": "spacebar",
+                                    "modifiers": { "mandatory": ["fn"] }
+                                },
+                                "to": [{ "shell_command": "bash -c 'cli=\"/Library/Application Support/org.pqrs/Karabiner-Elements/bin/karabiner_cli\"; \"$cli\" --select-profile \"$(comm -23 <(\"$cli\" --list-profile-names) <(\"$cli\" --show-current-profile-name) | head -n 1)\"'" }],
+                                "type": "basic"
+                            }
+                        ]
+                    }
+                ]
+            },
             "devices": [
                 {
                     "identifiers": { "is_keyboard": true },

@@ -629,7 +629,24 @@ EOF
 
     info "\nStowing..."
     cd ~ && rm -rf .zprofile
-    cd $DOTS_DIR && stow .
+    cd $DOTS_DIR
+
+    TARGET_DIR="$HOME"
+
+    mkdir -p "$BACKUP_DIR"
+
+    for item in "$DOTS_DIR"; do
+        name="${item:t}"
+        target="$TARGET_DIR/$name"
+
+        if [[ -e "$target" || -L "$target" ]]; then
+            info "Backing up: $target"
+            mv "$target" "$BACKUP_DIR/$name"
+        fi
+    done
+
+    info "Running stow..."
+    stow .
 
     source .zshrc
 

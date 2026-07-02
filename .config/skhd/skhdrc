@@ -79,5 +79,5 @@ alt - m : [[ $(yabai -m config focus_follows_mouse) = "disabled" ]] && \
 ctrl - return : open -a /Applications/kitty.app
 alt - b : librewolf --p
 
-ctrl + alt - 1 : yabai -m config top_padding 10;
+ctrl + alt - 1 : yabai -m config top_padding 8;
 ctrl + alt - 2 : yabai -m config top_padding 37;

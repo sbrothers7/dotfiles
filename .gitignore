@@ -6,3 +6,6 @@
 .config/Luxion
 .config/TUFHelper
 .config/wireshark
+/.config/gh
+/.config/git
+.config/xbuild/pkgconfig-cache-2.xml
