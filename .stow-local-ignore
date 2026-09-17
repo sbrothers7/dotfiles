@@ -1,6 +1,8 @@
-/.DS_Store
-/README.md
-/install.sh
-/.gitignore
-/.gitattributes
-
+\.git
+\.gitmodules
+\.gitignore
+\.gitattributes
+\.DS_Store
+/README\.md
+/install\.sh
+/install
