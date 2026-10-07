@@ -182,7 +182,7 @@ confirm_install() {
 
     # Saved so an interrupted install can be resumed with the same selections
     mkdir -p "${STATE_FILE:h}"
-    typeset -p selected_WM selected_ZSH selected_Utilities selected_Casks selected_Defaults selected_Other selected_Dotfiles DOTFILES_MODE USE_OVERLAY > "$STATE_FILE"
+    typeset -p selected_${^SUBCATS} selected_Dotfiles DOTFILES_MODE USE_OVERLAY > "$STATE_FILE"
     : > "$PROGRESS_FILE"
 
     tui_stop

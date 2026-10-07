@@ -1,0 +1,17 @@
+configuration {
+    modes: [ drun ];
+    show-icons: true;
+    drun-display-format: "{name}";
+}
+
+@theme "default"
+
+* {
+    bg:              #0f0f0ff2;
+    bg-alt:          #181818f2;
+    fg:              #e8e8e8ff;
+    fg-dim:          #a0a0a0ff;
+    border-col:      #ffffff1a;
+    selected-bg:     #262626f2;
+    selected-fg:     #ffffffff;
+}

@@ -1,0 +1,88 @@
+{
+    "layer": "top",
+    "position": "top",
+    "height": 34,
+    "margin-top": 8,
+    "margin-left": 10,
+    "margin-right": 10,
+    "spacing": 6,
+
+    "modules-left": [
+        "hyprland/workspaces"
+    ],
+
+    "modules-center": [
+        "clock"
+    ],
+
+    "modules-right": [
+        "cpu",
+        "memory",
+        "temperature#cpu",
+        "custom/gpu_temp",
+        "network",
+        "disk"
+    ],
+
+    "hyprland/workspaces": {
+        "format": "{id}",
+        "all-outputs": false,
+        "disable-scroll": true,
+        "active-only": false,
+        "persistent-workspaces": {
+            "*": 5
+        }
+    },
+
+    "clock": {
+        "interval": 1,
+        "format": "{:%Y-%m-%d  %H:%M}",
+        "tooltip": false
+    },
+
+    "cpu": {
+        "interval": 2,
+        "format": "CPU {usage}%",
+        "tooltip": false
+    },
+
+    "memory": {
+        "interval": 2,
+        "format": "RAM {}%",
+        "tooltip": false
+    },
+
+    "temperature#cpu": {
+        "interval": 2,
+        // Replace this with your real sensor path if needed:
+        // "hwmon-path": "/sys/class/hwmon/hwmon2/temp1_input",
+        "critical-threshold": 85,
+        "format": "TMP {temperatureC}°",
+        "format-critical": "TMP {temperatureC}°",
+        "tooltip": false
+    },
+
+    "custom/gpu_temp": {
+        "interval": 2,
+        "exec": "~/.config/waybar/scripts/gpu-temp.sh",
+        "return-type": "plain",
+        "format": "{}",
+        "tooltip": false
+    },
+
+    "network": {
+        "interval": 2,
+        "format-wifi": "NET {bandwidthUpBits} ↑ {bandwidthDownBits} ↓",
+        "format-ethernet": "NET {bandwidthUpBits} ↑ {bandwidthDownBits} ↓",
+        "format-linked": "NET linked",
+        "format-disconnected": "NET down",
+        "tooltip": false
+    },
+
+    "disk": {
+        "interval": 30,
+        "path": "/",
+        "format": "DSK {used}/{free}",
+        "tooltip": false
+    }
+}

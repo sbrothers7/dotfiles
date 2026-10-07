@@ -42,6 +42,13 @@ While installing, a loading screen shows the current step, the package being ins
 
 If the install is interrupted or a step fails, run the script again and choose **Resume**: finished steps are skipped and only the rest runs. When everything succeeds, third-party taps that no installed formula needs are untapped.
 
+### Arch Linux
+The same command works on Arch Linux. The script detects Arch and shows its own menus for the Hyprland desktop, shell, utilities, apps, system services and theming:
+<pre lang="markdown">zsh <(curl -sL https://raw.githubusercontent.com/sbrothers7/dotfiles/main/install.sh)</pre>
+Run it as your normal user (it uses `sudo` where needed). It updates the system, installs [yay](https://github.com/Jguer/yay) if missing, and installs repo and AUR packages with it. Steam turns on the `multilib` repository. Services for Bluetooth, NetworkManager, printing and SDDM are enabled but only start on the next boot, so nothing takes over the running session. The NVIDIA driver is preselected when an NVIDIA card is found.
+
+The Arch configs live in `arch/`, a separate stow package, so they never mix with the macOS ones. Linking backs up anything in the way to `~/sbro7dots-backups/` first.
+
 ### Test mode
 Try the menus, loading screen and resume without installing or changing anything:
 <pre lang="markdown">zsh install.sh --test</pre>
@@ -52,6 +59,7 @@ Test mode skips sudo and keeps its own state in `~/.cache/sbro7dots-test`. To se
 
 ### Installer layout
 `install.sh` checks compatibility, handles sudo and resume, and loads the rest from `install/`. When run through `curl`, it downloads the repo to a temporary folder first.
+- `core.zsh`: steps, resume and the install run, shared by macOS and Arch
 - `config.zsh`: menu items, defaults, taps, paths
 - `ui.zsh`: output helpers, menu widgets, main menu
 - `selection.zsh`: selections and detection of installed programs
@@ -60,6 +68,7 @@ Test mode skips sudo and keeps its own state in `~/.cache/sbro7dots-test`. To se
 - `dotfiles.zsh`: download, `~/.zshrc.local` and stow linking
 - `overlay.zsh`: loading screen shown during install
 - `test.zsh`: fake install steps for `--test`
+- `arch/`: the Arch Linux versions of `config.zsh`, `selection.zsh`, `steps.zsh`, `dotfiles.zsh` and `test.zsh`. `ui.zsh`, `overlay.zsh` and `core.zsh` are shared.
 
 # Updating
 Simply pull from the repository.

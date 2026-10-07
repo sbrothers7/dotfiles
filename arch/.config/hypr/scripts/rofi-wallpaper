@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+wallDir="$HOME/Pictures/Wallpapers"
+if [[ -n "$1" ]]; then
+    selected="$wallDir/$1"
+    [[ -f "$selected" ]] || exit 0
+    pkill swaybg
+    swaybg -i "$selected" -m fill > /dev/null 2>&1 &
+    disown
+
+    conf="$HOME/.config/hypr/hyprpaper.conf"
+    sed -i \
+        -e "s|^preload = .*|preload = $selected|" \
+        -e "s|^wallpaper = .*|wallpaper = ,$selected|" \
+        "$conf"
+    exit 0
+fi
+
+printf '\0prompt\x1fWallpapers\n'
+printf '\0no-custom\x1ftrue\n'
+
+find "$wallDir" -maxdepth 1 -type f \( \
+    -iname '*.png' -o \
+    -iname '*.jpg' -o \
+    -iname '*.jpeg' -o \
+    -iname '*.webp' \
+\) | sort | while IFS= read -r img; do
+    name="$(basename "$img")"
+    printf '%s\0icon\x1f%s\n' "$name" "$img"
+done

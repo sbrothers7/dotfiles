@@ -44,6 +44,8 @@ gather_pkgs() {
         done
     done
     
+    in_array "Fonts" "${nonbrew[@]}" && casks+=( "${FONT_CASKS[@]}" )
+
     # Deduplicate in zsh
     typeset -gaU formulae=("${formulae[@]}")
     typeset -gaU casks=("${casks[@]}")

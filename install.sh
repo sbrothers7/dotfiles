@@ -8,11 +8,21 @@ if [[ ! -f "$LIB_DIR/config.zsh" ]]; then
     curl -fsSL https://github.com/sbrothers7/dotfiles/archive/refs/heads/main.tar.gz | tar -xzf - -C "$DOWNLOAD_DIR"
     LIB_DIR="$DOWNLOAD_DIR/dotfiles-main/install"
 fi
-for part in config ui selection presets dotfiles overlay steps; do
+# Arch Linux loads its own menus and steps from install/arch/ on top of the shared parts
+if [[ "$(uname -s)" == Linux ]]; then
+    OS=arch
+    PARTS=( ui overlay core dotfiles arch/config arch/selection arch/dotfiles arch/steps )
+else
+    OS=mac
+    PARTS=( config ui selection presets dotfiles overlay core steps )
+fi
+for part in "${PARTS[@]}"; do
     source "$LIB_DIR/$part.zsh" || { print "Could not load installer file $part.zsh"; exit 1; }
 done
-# --test: everything runs except the install steps, which are faked (see install/test.zsh)
-[[ "$1" == --test ]] && source "$LIB_DIR/test.zsh"
+# --test: everything runs except the install steps, which are faked (see install/test.zsh and install/arch/test.zsh)
+if [[ "$1" == --test ]]; then
+    if [[ "$OS" == arch ]]; then source "$LIB_DIR/arch/test.zsh"; else source "$LIB_DIR/test.zsh"; fi
+fi
 
 clear
 
@@ -29,6 +39,19 @@ compat() {
         ok "Running in interactive environment"
     fi
     
+    if [[ "$OS" == arch ]]; then
+        if [[ ! -f /etc/arch-release ]]; then
+            err "This Linux is not Arch Linux. The Linux install only supports Arch."
+            exit 1
+        fi
+        ok "Arch Linux detected"
+        if (( EUID == 0 )); then
+            err "Run this script as your normal user, not root. It uses sudo where needed."
+            exit 1
+        fi
+        return 0
+    fi
+
     if [[ "$(uname -m)" == "arm64" ]]; then
         ok "Apple Silicon detected"
     else
@@ -47,8 +70,8 @@ compat() {
 if (( ! TEST_MODE )); then
     info "This script needs sudo privileges during install."
     sudo -v || { err "sudo required"; exit 1; }
-    # Homebrew resets the sudo timestamp on every brew call, so casks would ask for the password again.
-    # Allow passwordless sudo only while this script runs.
+    # Homebrew resets the sudo timestamp on every brew call, and long AUR builds outlast it,
+    # so installs would ask for the password again. Allow passwordless sudo only while this script runs.
     print -r -- "$(id -un) ALL=(ALL) NOPASSWD: ALL" | sudo tee "$SUDOERS_TMP" >/dev/null && sudo chmod 440 "$SUDOERS_TMP"
 fi
 trap 'tui_stop; overlay_stop; [[ -f "$SUDOERS_TMP" ]] && sudo rm -f "$SUDOERS_TMP"; [[ -n "$DOWNLOAD_DIR" ]] && rm -rf "$DOWNLOAD_DIR"' EXIT

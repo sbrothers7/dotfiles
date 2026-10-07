@@ -1,0 +1,53 @@
+/* Background overlay */
+window {
+    background-color: rgba(0, 0, 0, 0.4);
+}
+
+/* Button container */
+button {
+    background-color: rgba(0, 0, 0, 0.7);
+    border: 2px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    margin: 8px;
+    color: #cdd6f4;
+    font-size: 18px;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 60px;
+    box-shadow: none;
+    transition: all 0.2s ease;
+}
+
+button:hover {
+    background-color: rgba(96, 96, 96, 0.7);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+button:focus {
+    background-color: rgba(63, 63, 63, 0.7);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+#lock {
+    background-image: image(url("/usr/share/wlogout/icons/lock.png"));
+}
+
+#logout {
+    background-image: image(url("/usr/share/wlogout/icons/logout.png"));
+}
+
+#suspend {
+    background-image: image(url("/usr/share/wlogout/icons/suspend.png"));
+}
+
+#hibernate {
+    background-image: image(url("/usr/share/wlogout/icons/hibernate.png"));
+}
+
+#shutdown {
+    background-image: image(url("/usr/share/wlogout/icons/shutdown.png"));
+}
+
+#reboot {
+    background-image: image(url("/usr/share/wlogout/icons/reboot.png"));
+}

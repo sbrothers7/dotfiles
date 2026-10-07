@@ -1,0 +1,22 @@
+/* Dark base — tune to your palette */
+@define-color window_bg_color #16181d;
+@define-color view_bg_color #1b1e24;
+@define-color headerbar_bg_color #16181d;
+@define-color popover_bg_color #1e2129;
+@define-color card_bg_color #20242c;
+@define-color sidebar_bg_color #181b21;
+
+/* Accent */
+@define-color accent_bg_color #4a8fe7;
+@define-color accent_color #6ba4ec;
+
+/* Tiling: kill CSD rounding and shadow gaps */
+window,
+window.csd,
+window.background {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Slimmer headerbars — more vertical room on ultrawide */
+headerbar { min-height: 38px; }

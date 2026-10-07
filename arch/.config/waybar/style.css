@@ -1,0 +1,84 @@
+* {
+    border: none;
+    border-radius: 0;
+    min-height: 0;
+    font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", monospace;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+window#waybar {
+    background: rgba(0, 0, 0, 0);
+    color: #e8e8e8;
+}
+
+.modules-left,
+.modules-center,
+.modules-right {
+    margin: 1px 0;
+}
+
+/* base module style */
+#clock,
+#cpu,
+#memory,
+#temperature,
+#custom-gpu_temp,
+#network,
+#disk {
+    background: rgba(0, 0, 0, 0.2);
+    color: #e8e8e8;
+    padding: 0 12px;
+    margin: 0px;
+    min-height: 20px;
+    border-radius: 8px;
+}
+
+/* extra spacing between right-side stats */
+.modules-right > widget {
+    margin-left: 5px;
+    margin-right: 5px;
+}
+
+/* workspaces */
+#workspaces {
+    background: transparent;
+    padding: 0;
+    margin-left: 2px;
+    margin-right: 8px;
+}
+
+#workspaces button {
+    color: #7a7a7a;
+    background: transparent;
+    padding: 0 5px;
+    margin: 0 4px;
+    min-width: 28px;
+    min-height: 20px;
+    border-radius: 8px;
+    transition: none;
+    box-shadow: none;
+    border: 1px solid transparent;
+}
+
+#workspaces button:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #dcdcdc;
+}
+
+#workspaces button.active {
+    background: rgba(0, 0, 0, 0.2);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.20);
+}
+
+#workspaces button.urgent {
+    background: rgba(255, 255, 255, 0.22);
+    color: #ffffff;
+}
+
+#temperature.critical,
+#custom-gpu_temp.critical {
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+}

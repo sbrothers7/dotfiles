@@ -96,7 +96,7 @@ overlay_loop() {
 
 # Prints whatever the log gained since the last call
 overlay_flush() {
-    size=$(stat -f %z "$INSTALL_LOG" 2>/dev/null || print 0)
+    size=$(wc -c < "$INSTALL_LOG" 2>/dev/null || print 0)
     if (( size > printed )); then
         tail -c +$(( printed + 1 )) "$INSTALL_LOG" | head -c $(( size - printed )) > /dev/tty
         printed=size
