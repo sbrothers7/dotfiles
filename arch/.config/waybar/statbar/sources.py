@@ -1,4 +1,9 @@
-"""System data collection for statbar. One Sampler.sample() call per interval."""
+"""System data collection for statbar.
+
+Sampler.sample() runs every stat interval and updates the live values in `now`;
+Sampler.push_graph() runs every graph interval and appends the average of the
+samples since the last push to each `hist` deque.
+"""
 import glob
 import os
 import re
@@ -6,7 +11,8 @@ import subprocess
 import time
 from collections import deque
 
-HISTORY = 60  # samples kept
+HISTORY = 60  # default graph points kept
+SERIES = ("cpu", "gpu", "ram", "cpu_temp", "gpu_temp", "rx", "tx", "rd", "wr")
 
 
 def read(path, default=None):
@@ -244,11 +250,9 @@ class Sampler:
         self.disks = physical_disks()
         self.disk_models = {d: read(f"/sys/block/{d}/device/model", "") for d in self.disks}
 
-        h = lambda: deque(maxlen=HISTORY)
-        self.cpu_hist, self.gpu_hist, self.ram_hist = h(), h(), h()
-        self.cpu_temp_hist, self.gpu_temp_hist = h(), h()
-        self.rx_hist, self.tx_hist = h(), h()
-        self.rd_hist, self.wr_hist = h(), h()
+        self.now = {}                                         # live value per series
+        self.hist = {k: deque(maxlen=HISTORY) for k in SERIES}   # graph points per series
+        self._acc = {}                                        # series -> [sum(v*dt), sum(dt)]
 
         self.cpu_cores, self.core_temps, self.package_temp = [], {}, None
         self.gpu = None
@@ -262,10 +266,31 @@ class Sampler:
         self._disk_prev = disk_bytes(self.disks)
         self._t_prev = time.monotonic()
 
+    def set_points(self, n):
+        """Change how many graph points are kept (keeps the newest ones)."""
+        n = max(2, int(n))
+        for k, h in self.hist.items():
+            if h.maxlen != n:
+                self.hist[k] = deque(h, maxlen=n)
+
+    def _put(self, key, value, dt):
+        self.now[key] = value
+        acc = self._acc.setdefault(key, [0.0, 0.0])
+        acc[0] += value * dt
+        acc[1] += dt
+
+    def push_graph(self):
+        """Append the time-weighted average since the last push as one graph point."""
+        for k, (total, weight) in self._acc.items():
+            if weight > 0:
+                self.hist[k].append(total / weight)
+        self._acc.clear()
+
     def sample(self):
         now = time.monotonic()
         dt = max(now - self._t_prev, 1e-3)
         self._t_prev = now
+        put = lambda k, v: self._put(k, v, dt)
 
         # CPU usage
         cur = read_cpu_times()
@@ -275,13 +300,13 @@ class Sampler:
             d = total - p_total
             usage[k] = 0.0 if d <= 0 else 100.0 * (1 - (idle - p_idle) / d)
         self._cpu_prev = cur
-        self.cpu_hist.append(usage["cpu"])
+        put("cpu", usage["cpu"])
         self.cpu_cores = [usage[f"cpu{i}"] for i in range(len(cur) - 1)]
 
         # temperatures
         self.package_temp, self.core_temps = core_temps()
         if self.core_temps:
-            self.cpu_temp_hist.append(sum(self.core_temps.values()) / len(self.core_temps))
+            put("cpu_temp", sum(self.core_temps.values()) / len(self.core_temps))
         self.other_temps = other_temps()
 
         # GPU
@@ -291,8 +316,8 @@ class Sampler:
             self.gpu = dict(util=r[0], mem_util=r[1], enc=r[2], dec=r[3],
                             vram_used=r[4] / 1024, vram_total=r[5] / 1024,
                             power=r[6], temp=r[7], fan=r[8])
-            self.gpu_hist.append(r[0])
-            self.gpu_temp_hist.append(r[7])
+            put("gpu", r[0])
+            put("gpu_temp", r[7])
         else:
             self.gpu = None
 
@@ -305,19 +330,19 @@ class Sampler:
         used = info["MemTotal"] - info["MemAvailable"]
         self.mem = dict(used=used, total=info["MemTotal"], cached=info["Cached"],
                         swap_used=info["SwapTotal"] - info["SwapFree"], swap_total=info["SwapTotal"])
-        self.ram_hist.append(100 * used / info["MemTotal"])
+        put("ram", 100 * used / info["MemTotal"])
 
         # network
         iface = default_iface()
         net = iface_bytes(iface) if iface else None
         if net and self._net_prev and iface == self.iface:
-            self.rx_hist.append((net[0] - self._net_prev[0]) / dt)
-            self.tx_hist.append((net[1] - self._net_prev[1]) / dt)
+            put("rx", (net[0] - self._net_prev[0]) / dt)
+            put("tx", (net[1] - self._net_prev[1]) / dt)
         self.iface, self._net_prev = iface, net
 
         # disk
         d = disk_bytes(self.disks)
-        self.rd_hist.append((d[0] - self._disk_prev[0]) / dt)
-        self.wr_hist.append((d[1] - self._disk_prev[1]) / dt)
+        put("rd", (d[0] - self._disk_prev[0]) / dt)
+        put("wr", (d[1] - self._disk_prev[1]) / dt)
         self._disk_prev = d
         self.fs = filesystems()

@@ -25,7 +25,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sources import HISTORY, Sampler, fmt_axis, fmt_rate, fmt_size, nice_ceiling  # noqa: E402
 from workspaces import Workspaces  # noqa: E402
 
-INTERVAL = 2           # seconds between samples
+CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+DEFAULTS = {
+    "stat_interval": 1.0,    # seconds between samples: bar text, panel "now" values, per-core bars
+    "graph_interval": 2.0,   # seconds per graph point (average of the samples in that span)
+    "graph_points": HISTORY,  # points kept per graph; span = graph_points * graph_interval
+}
+CFG = dict(DEFAULTS)     # live config; config.json is re-read whenever it changes
 SHOW_DELAY = 150       # ms hovering a module before its panel opens
 HIDE_DELAY = 250       # ms after the pointer leaves module + panel before it closes
 BAR_TOP, BAR_HEIGHT, BAR_RIGHT = 8, 34, 10   # match waybar's margin-top / height / margin-right
@@ -46,6 +52,34 @@ DIM = "#8a8a8a"
 HERE = os.path.dirname(os.path.abspath(__file__))
 PREFS = os.path.expanduser("~/.cache/statbar.json")
 LOCK = threading.RLock()   # sampler thread vs. GTK drawing of the same deques
+
+
+def load_config():
+    """Merge config.json over DEFAULTS; bad or missing values fall back to the defaults."""
+    cfg = dict(DEFAULTS)
+    try:
+        with open(CONFIG) as f:
+            user = json.load(f)
+    except (OSError, ValueError):
+        user = {}
+    for k, default in DEFAULTS.items():
+        try:
+            v = float(user.get(k, default))
+            cfg[k] = v if v > 0 else default
+        except (TypeError, ValueError):
+            pass
+    cfg["stat_interval"] = max(0.1, cfg["stat_interval"])
+    cfg["graph_interval"] = max(cfg["stat_interval"], cfg["graph_interval"])
+    cfg["graph_points"] = max(2, int(cfg["graph_points"]))
+    return cfg
+
+
+def fmt_ago(seconds):
+    if seconds < 60:
+        return f"{seconds:g}s"
+    if seconds < 3600:
+        return f"{seconds / 60:g}m"
+    return f"{seconds / 3600:g}h"
 
 
 def rgb(hex_color, alpha=1.0):
@@ -73,11 +107,12 @@ def deg(v):
     return "--" if v is None else f"{v:.0f}°"
 
 
-def stats_markup(hist, fmt):
-    if not hist:
+def stats_markup(now, hist, fmt):
+    """`now` is the live value; avg/min/max span the graph history."""
+    if now is None:
         return dim("collecting…")
-    vals = list(hist)
-    return (dim("now ") + fmt(vals[-1]) + dim("   avg ") + fmt(sum(vals) / len(vals)) +
+    vals = list(hist) or [now]
+    return (dim("now ") + fmt(now) + dim("   avg ") + fmt(sum(vals) / len(vals)) +
             dim("   min ") + fmt(min(vals)) + dim("   max ") + fmt(max(vals)))
 
 
@@ -180,7 +215,8 @@ class Graph(Hoverable):
             max((max(v) for _, v, _ in series if v), default=0))
         pw, ph = w - AXIS_W - 4, h - PAD_T - PAD_B
         x0, y0 = AXIS_W, PAD_T
-        step = pw / (HISTORY - 1)
+        points, gi = CFG["graph_points"], CFG["graph_interval"]
+        step = pw / (points - 1)
         ymap = lambda v: y0 + ph * (1 - max(0.0, min(1.0, (v - lo) / (top - lo))))
 
         cr.set_line_width(1)
@@ -191,7 +227,7 @@ class Graph(Hoverable):
             cr.line_to(x0 + pw, y)
             cr.stroke()
             draw_text(cr, self.axis_fmt(lo + (top - lo) * f), x0 - 6, y - 7, DIM, 10, align="right")
-        draw_text(cr, f"-{HISTORY * INTERVAL // 60}m", x0, y0 + ph + 3, DIM, 10)
+        draw_text(cr, f"-{fmt_ago(round(points * gi))}", x0, y0 + ph + 3, DIM, 10)
         draw_text(cr, "now", x0 + pw, y0 + ph + 3, DIM, 10, align="right")
 
         for _, vals, color in series:
@@ -222,7 +258,7 @@ class Graph(Hoverable):
                 cr.move_to(round(x) + 0.5, y0)
                 cr.line_to(round(x) + 0.5, y0 + ph)
                 cr.stroke()
-                lines = [("now" if back == 0 else f"{back * INTERVAL}s ago", "#e8e8e8")]
+                lines = [("now" if back == 0 else f"{fmt_ago(round(back * gi, 1))} ago", "#e8e8e8")]
                 for name, vals, color in series:
                     if back < len(vals):
                         v = vals[len(vals) - 1 - back]
@@ -391,13 +427,32 @@ class StatBar:
 
     # ----- sampling -----
 
+    def reload_config(self):
+        try:
+            mtime = os.stat(CONFIG).st_mtime
+        except OSError:
+            mtime = None
+        if mtime == self.config_mtime:
+            return
+        self.config_mtime = mtime
+        CFG.update(load_config())
+        with LOCK:
+            self.s.set_points(CFG["graph_points"])
+
     def sample_loop(self):
+        self.config_mtime = False
         time.sleep(0.5)
+        next_graph = time.monotonic()
         while True:
+            self.reload_config()
+            start = time.monotonic()
             with LOCK:
                 self.s.sample()
+                if start >= next_graph:
+                    self.s.push_graph()
+                    next_graph = max(next_graph + CFG["graph_interval"], start)
             GLib.idle_add(self.refresh)
-            time.sleep(INTERVAL)
+            time.sleep(max(0.05, CFG["stat_interval"] - (time.monotonic() - start)))
 
     def refresh(self):
         with LOCK:
@@ -532,19 +587,19 @@ class StatBar:
     # ----- bar texts -----
 
     def text_cpu(self):
-        h = self.s.cpu_hist
-        return (f"CPU {h[-1]:.0f}%" if h else "CPU --"), False
+        v = self.s.now.get("cpu")
+        return (f"CPU {v:.0f}%" if v is not None else "CPU --"), False
 
     def text_gpu(self):
         g = self.s.gpu
         return (f"GPU {g['util']:.0f}%" if g else "GPU --"), False
 
     def text_ram(self):
-        h = self.s.ram_hist
-        return (f"RAM {h[-1]:.0f}%" if h else "RAM --"), False
+        v = self.s.now.get("ram")
+        return (f"RAM {v:.0f}%" if v is not None else "RAM --"), False
 
     def text_tmp(self):
-        c = self.s.cpu_temp_hist[-1] if self.s.cpu_temp_hist else None
+        c = self.s.now.get("cpu_temp")
         g = self.s.gpu["temp"] if self.s.gpu else None
         return f"TMP {deg(c)} | {deg(g)}", (c or 0) >= HOT or (g or 0) >= HOT
 
@@ -602,9 +657,9 @@ class StatBar:
         s = self.s
         if not s.iface:
             return "NET down", False
-        if not s.rx_hist:
+        if "rx" not in s.now:
             return "NET …", False
-        return f"NET {self.rate(s.tx_hist[-1])} ↑ {self.rate(s.rx_hist[-1])} ↓", False
+        return f"NET {self.rate(s.now['tx'])} ↑ {self.rate(s.now['rx'])} ↓", False
 
     def text_dsk(self):
         root = next((f for f in self.s.fs if "/" in f["mounts"]), None)
@@ -623,8 +678,8 @@ class StatBar:
     def panel_cpu(self):
         s, p, c = self.s, Panel(), TINT["cpu"]
         p.text(lambda: span(esc(s.cpu_name), c), "title")
-        p.text(lambda: stats_markup(s.cpu_hist, pct))
-        p.widget(Graph(lambda: [("", list(s.cpu_hist), c)], pct, pct, top=100), 4)
+        p.text(lambda: stats_markup(s.now.get("cpu"), s.hist["cpu"], pct))
+        p.widget(Graph(lambda: [("", list(s.hist["cpu"]), c)], pct, pct, top=100), 4)
         p.text(lambda: "Per core" + (self.legend("P-core", "E-core") if s.e_cores else ""), "heading")
         p.widget(Bars(lambda: self.core_items(enumerate(s.cpu_cores)), pct, pct))
         return p
@@ -635,8 +690,8 @@ class StatBar:
         p.text(lambda: (dim("VRAM ") + f"{s.gpu['vram_used']:.1f} / {s.gpu['vram_total']:.1f} GiB" +
                         dim("   power ") + f"{s.gpu['power']:.0f} W" +
                         dim("   temp ") + deg(s.gpu["temp"])) if s.gpu else dim("nvidia-smi unavailable"))
-        p.text(lambda: stats_markup(s.gpu_hist, pct))
-        p.widget(Graph(lambda: [("", list(s.gpu_hist), c)], pct, pct, top=100), 4)
+        p.text(lambda: stats_markup(s.now.get("gpu"), s.hist["gpu"], pct))
+        p.widget(Graph(lambda: [("", list(s.hist["gpu"]), c)], pct, pct, top=100), 4)
         p.text(lambda: "Engines", "heading")
         engines = ("Core", "Memory", "Encoder", "Decoder")
         keys = ("util", "mem_util", "enc", "dec")
@@ -649,8 +704,8 @@ class StatBar:
         p.text(lambda: span("Memory", c) + f"  {s.mem.get('used', 0):.1f} / {s.mem.get('total', 0):.1f} GiB", "title")
         p.text(lambda: dim("cached ") + f"{s.mem.get('cached', 0):.1f} GiB" + dim("   swap ") +
                f"{s.mem.get('swap_used', 0):.1f} / {s.mem.get('swap_total', 0):.1f} GiB")
-        p.text(lambda: stats_markup(s.ram_hist, pct))
-        p.widget(Graph(lambda: [("", list(s.ram_hist), c)], pct, pct, top=100), 4)
+        p.text(lambda: stats_markup(s.now.get("ram"), s.hist["ram"], pct))
+        p.widget(Graph(lambda: [("", list(s.hist["ram"]), c)], pct, pct, top=100), 4)
         return p
 
     def panel_tmp(self):
@@ -668,7 +723,7 @@ class StatBar:
                              f"{s.gpu['fan']:.0f}%" + dim("  power ") + f"{s.gpu['power']:.0f} W")
             return "\n".join(parts)
         p.text(info)
-        p.widget(Graph(lambda: [("CPU", list(s.cpu_temp_hist), BLUE), ("GPU", list(s.gpu_temp_hist), RED)],
+        p.widget(Graph(lambda: [("CPU", list(s.hist["cpu_temp"]), BLUE), ("GPU", list(s.hist["gpu_temp"]), RED)],
                        deg, deg, top=100, bottom=20), 4)
         p.text(lambda: "Per core" + (self.legend("P-core", "E-core") if s.e_cores else ""), "heading")
         p.widget(Bars(lambda: self.core_items(sorted(s.core_temps.items())), deg, deg,
@@ -684,10 +739,10 @@ class StatBar:
 
         mult = lambda: 1 if self.net_bytes() else 8
         axis = lambda v: fmt_axis(v)
-        for title, hist, color in (("Download", s.rx_hist, BLUE), ("Upload", s.tx_hist, RED)):
+        for title, key, color in (("Download", "rx", BLUE), ("Upload", "tx", RED)):
             p.text(lambda t=title, col=color: span(t, col), "heading")
-            p.text(lambda h=hist: stats_markup(h, lambda v: self.rate(v)))
-            p.widget(Graph(lambda h=hist, col=color: [("", [v * mult() for v in h], col)],
+            p.text(lambda k=key: stats_markup(s.now.get(k), s.hist[k], self.rate))
+            p.widget(Graph(lambda k=key, col=color: [("", [v * mult() for v in s.hist[k]], col)],
                            lambda v: fmt_rate(v, "B" if mult() == 1 else "b"), axis, height=90))
         return p
 
@@ -698,10 +753,10 @@ class StatBar:
         p.widget(self.unit_selector("disk_unit", (("iec", "GiB (1024)"), ("si", "GB (1000)")), "iec"), 2)
         axis = lambda v: fmt_axis(v, self.disk_base())
         ceil = lambda v: nice_ceiling(v, 1000.0, self.disk_base())
-        for title, hist, color in (("Read", s.rd_hist, BLUE), ("Write", s.wr_hist, RED)):
+        for title, key, color in (("Read", "rd", BLUE), ("Write", "wr", RED)):
             p.text(lambda t=title, col=color: span(t, col), "heading")
-            p.text(lambda h=hist: stats_markup(h, self.disk_rate))
-            p.widget(Graph(lambda h=hist, col=color: [("", list(h), col)], self.disk_rate, axis,
+            p.text(lambda k=key: stats_markup(s.now.get(k), s.hist[k], self.disk_rate))
+            p.widget(Graph(lambda k=key, col=color: [("", list(s.hist[k]), col)], self.disk_rate, axis,
                            height=90, ceil=ceil))
         p.text(lambda: "Filesystems", "heading")
         p.widget(FsList(lambda: s.fs, c, self.size), 2)
