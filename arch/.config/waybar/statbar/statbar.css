@@ -1,0 +1,100 @@
+/* statbar: matches ~/.config/waybar/style.css */
+* {
+    font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", monospace;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+window {
+    background: transparent;
+}
+
+/* ---- bar modules ---- */
+.module {
+    background: rgba(0, 0, 0, 0.2);
+    color: #e8e8e8;
+    padding: 0 12px;
+    margin: 1px 0;
+    border-radius: 8px;
+}
+
+/* fixed widths (8px/char) so the bar never shifts; label colors are set in statbar.py */
+#cpu { min-width: 64px; }   /* "CPU 100%" */
+#gpu { min-width: 64px; }
+#ram { min-width: 64px; }
+#tmp { min-width: 104px; }  /* "TMP 99° | 99°" */
+#net { min-width: 216px; }  /* "NET 99.9 Mb/s ↑ 99.9 Mb/s ↓" */
+#dsk { min-width: 184px; }  /* "DSK 999.9GiB / 999.9GiB" */
+
+.module.critical {
+    color: #ffffff;
+    background: rgba(255, 110, 110, 0.35);
+}
+
+/* ---- workspaces (same look as waybar's) ---- */
+#workspaces button {
+    color: #7a7a7a;
+    background: transparent;
+    background-image: none;
+    padding: 0 7px;
+    margin: 1px 4px;
+    min-width: 16px;
+    border-radius: 8px;
+    transition: none;
+    box-shadow: none;
+    border: 1px solid transparent;
+    outline: none;
+}
+
+#workspaces button:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #dcdcdc;
+}
+
+#workspaces button.active {
+    background: rgba(0, 0, 0, 0.2);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.20);
+}
+
+#workspaces button image {
+    opacity: 0.75;
+}
+
+#workspaces button image.focused,
+#workspaces button.active image {
+    opacity: 1;
+}
+
+tooltip {
+    background: rgba(0, 0, 0, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.20);
+    border-radius: 8px;
+}
+
+tooltip label {
+    color: #e8e8e8;
+    font-size: 13px;
+    padding: 4px 6px;
+}
+
+/* ---- hover panels (Hyprland blurs behind them) ---- */
+.panel {
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.20);
+    border-radius: 10px;
+    padding: 12px 14px;
+}
+
+.panel label {
+    color: #e8e8e8;
+    font-size: 13px;
+}
+
+.panel label.title {
+    font-size: 14px;
+}
+
+.panel label.heading {
+    margin-top: 8px;
+}

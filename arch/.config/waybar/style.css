@@ -18,14 +18,8 @@ window#waybar {
     margin: 1px 0;
 }
 
-/* base module style */
-#clock,
-#cpu,
-#memory,
-#temperature,
-#custom-gpu_temp,
-#network,
-#disk {
+/* base module style (stat modules are styled in statbar/statbar.css) */
+#clock {
     background: rgba(0, 0, 0, 0.2);
     color: #e8e8e8;
     padding: 0 12px;
@@ -77,8 +71,17 @@ window#waybar {
     color: #ffffff;
 }
 
-#temperature.critical,
-#custom-gpu_temp.critical {
-    background: rgba(255, 255, 255, 0.14);
-    color: #ffffff;
+
+/* hover detail views: same glass look as the modules (blurred by Hyprland) */
+tooltip {
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.20);
+    border-radius: 8px;
+}
+
+tooltip label {
+    color: #e8e8e8;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 6px 8px;
 }

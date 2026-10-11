@@ -105,6 +105,23 @@ rule("adofai",  { class = "ADanceOfFireAndIce" }, { float = true })
 rule("dm-note", { class = "dm-note" },            bare)
 rule("zoom",    { class = "zoom" },               bare)
 
+-- blur behind waybar's hover tooltips (the bar itself stays unblurred);
+-- ignore_alpha keeps the blur inside the tooltip's rounded corners
+hl.layer_rule({
+    name         = "waybar-popups",
+    match        = { namespace = "waybar" },
+    blur_popups  = true,
+    ignore_alpha = 0.1,
+})
+
+-- statbar's hover panels (~/.config/waybar/statbar) get the same glass blur
+hl.layer_rule({
+    name         = "statbar-panels",
+    match        = { namespace = "statbar-panel" },
+    blur         = true,
+    ignore_alpha = 0.1,
+})
+
 --------------------------------------------------------------------
 -- Korean input (fcitx5)
 --------------------------------------------------------------------
@@ -229,6 +246,9 @@ end
 hl.on("hyprland.start", function()
     os.remove(startlog)
     start("waybar")
+    -- workspaces + stats; the shim shortens GTK's hardcoded 500 ms tooltip delay
+    -- (window-title tooltips on workspace icons), see ~/.config/waybar/tooltip-delay
+    start("GTK_TOOLTIP_DELAY=150 LD_PRELOAD=$HOME/.config/waybar/tooltip-delay/tooltip-delay.so ~/.config/waybar/statbar/statbar.py")
     start("systemctl --user start hyprpolkitagent")
     start("swayosd-server")
     start("~/.config/hypr/scripts/no-repeat.sh")

@@ -23,6 +23,7 @@ grep -qsx 0x10de /sys/bus/pci/devices/*/vendor && DEFAULT_System+=( 6 )
 # Menu item -> packages, where it is more than the one package of the same name
 typeset -gA PKGS=(
     hyprland "hyprland uwsm xdg-desktop-portal-hyprland xdg-desktop-portal-gtk hyprpolkitagent hyprlock hypridle hyprpaper swaybg qt5-wayland qt6-wayland"
+    waybar "waybar gtk-layer-shell python-gobject python-cairo"   # GTK libs for ~/.config/waybar/statbar
     quickshell "quickshell qt6-5compat"
     rofi "rofi rofimoji wtype"
     Screenshots "hyprshot grim slurp swappy"
