@@ -76,6 +76,20 @@ setup_zram() {
     note "zram swap starts on the next boot."
 }
 
+# KakaoTalk's launcher runs Wine with LC_ALL=ko_KR.UTF-8; without that locale Xlib can't open
+# the fcitx5 XIM connection and Hangul can't be typed
+setup_korean_locale() {
+    if locale -a | grep -qix 'ko_KR.utf8'; then
+        ok "ko_KR.UTF-8 locale is already generated"
+        return 0
+    fi
+    if grep -q '^#\s*ko_KR.UTF-8 UTF-8' /etc/locale.gen; then
+        sudo sed -i 's/^#\s*ko_KR.UTF-8 UTF-8/ko_KR.UTF-8 UTF-8/' /etc/locale.gen
+    else
+        print -r -- 'ko_KR.UTF-8 UTF-8' | sudo tee -a /etc/locale.gen >/dev/null
+    fi && sudo locale-gen
+}
+
 set_shell() {
     [[ "$(getent passwd "$(id -un)" | cut -d: -f7)" == */zsh ]] && { ok "zsh is already the login shell"; return 0; }
     sudo chsh -s /usr/bin/zsh "$(id -un)" && note "zsh is the login shell from the next login."
@@ -116,6 +130,7 @@ install_sequence() {
     (( ${#picked_System} )) && step "Enable services" enable_services
     in_array zram "${picked[@]}" && step "Set up zram" setup_zram
     in_array "minegrub theme" "${picked[@]}" && step "Install minegrub theme" install_minegrub
+    in_array kakaotalk "${picked[@]}" && step "Generate Korean locale for KakaoTalk" setup_korean_locale
     in_array zsh "${picked[@]}" && step "Make zsh the login shell" set_shell
 
     # "Don't use dotfiles" leaves the repo and any existing links alone

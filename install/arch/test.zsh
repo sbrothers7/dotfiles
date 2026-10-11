@@ -34,6 +34,7 @@ install_yay()      { command -v yay >/dev/null && { ok "Found yay installation";
 enable_multilib()  { fake 1 "Enabling [multilib] in /etc/pacman.conf" ":: Synchronizing package databases..."; }
 enable_services()  { local item; for item in "${picked_System[@]}"; do fake 0.3 "Enabling services for $item"; done; }
 setup_zram()       { fake 0.5 "Writing /etc/systemd/zram-generator.conf"; }
+setup_korean_locale() { fake 1 "Enabling ko_KR.UTF-8 in /etc/locale.gen" "Generating locales..." "  ko_KR.UTF-8... done"; }
 set_shell()        { fake 0.5 "Changing shell for $(id -un)." "Shell changed."; }
 install_minegrub() { fake 2 "Cloning into 'minegrub-theme'..." "Copying theme to /boot/grub/themes" "Generating grub configuration file ..." "done"; }
 get_dotfiles()     { fake 2 "Cloning into '$DOTS_DIR'..." "Resolving deltas: 100% done."; }
@@ -54,7 +55,7 @@ stow_dotfiles() {
 }
 
 # Anything not faked above still can't touch this system
-for cmd in sudo yay makepkg systemctl chsh stow git grub-mkconfig; do
+for cmd in sudo yay makepkg systemctl chsh stow git grub-mkconfig locale-gen; do
     functions[$cmd]="print -r -- \"(test mode) skipped: $cmd \$*\""
 done
 unset cmd
