@@ -45,6 +45,16 @@ hl.config({
         kb_options   = "korean:ralt_hangul",   -- Right Alt sends Hangul
         repeat_rate  = 45,
         repeat_delay = 200,
+
+        -- Wacom Intuos Pro M (kernel wacom driver + libinput, USB or Bluetooth)
+        tablet = {
+            output = "HDMI-A-1",
+            -- Pen area is 224x148 mm (16:10) but the monitor is 21:9, so the
+            -- full area stretches strokes sideways. To keep proportions, use a
+            -- 224x94 mm strip centred vertically by uncommenting these:
+            -- active_area_size     = { 224, 94 },
+            -- active_area_position = { 0, 27 },
+        },
     },
 
     animations = {

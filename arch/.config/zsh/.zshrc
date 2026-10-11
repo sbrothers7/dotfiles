@@ -1,7 +1,7 @@
 # source global shell alias & variables files
 [ -f "$HOME/.alias" ] && source "$HOME/.alias"
 
-#source $HOME/.config/agkozak-zsh-prompt/agkozak-zsh-prompt.plugin.zsh 
+#source $HOME/.config/agkozak-zsh-prompt/agkozak-zsh-prompt.plugin.zsh
 # breaks with zsh-autosuggestions
 
 [[ -f /usr/lib/spaceship-prompt/spaceship.zsh ]] && source /usr/lib/spaceship-prompt/spaceship.zsh
@@ -66,6 +66,7 @@ compinit
 # End of lines added by compinstall
 
 [[ -f ~/.config/zsh/video.zsh ]] && source ~/.config/zsh/video.zsh
+[[ -f ~/.config/zsh/venv.zsh ]] && source ~/.config/zsh/venv.zsh
 # for f in ~/.config/zsh/*.zsh(N); do source "$f"; done
 
 export PATH="$HOME/.local/bin:$PATH"
