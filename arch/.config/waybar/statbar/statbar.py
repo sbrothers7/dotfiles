@@ -663,7 +663,7 @@ class StatBar:
 
     def text_dsk(self):
         root = next((f for f in self.s.fs if "/" in f["mounts"]), None)
-        return (f"DSK {self.size(root['used'])} / {self.size(root['free'])}" if root else "DSK --"), False
+        return (f"DSK {self.size(root['used'])} / {self.size(root['total'])}" if root else "DSK --"), False
 
     # ----- panels -----
 

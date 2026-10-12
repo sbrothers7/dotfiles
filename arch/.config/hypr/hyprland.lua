@@ -258,7 +258,7 @@ hl.on("hyprland.start", function()
     start("waybar")
     -- workspaces + stats; the shim shortens GTK's hardcoded 500 ms tooltip delay
     -- (window-title tooltips on workspace icons), see ~/.config/waybar/tooltip-delay
-    start("GTK_TOOLTIP_DELAY=150 LD_PRELOAD=$HOME/.config/waybar/tooltip-delay/tooltip-delay.so ~/.config/waybar/statbar/statbar.py")
+    start("GTK_TOOLTIP_DELAY=150 LD_PRELOAD=$HOME/.config/waybar/tooltip-delay/tooltip-delay.so python3 ~/.config/waybar/statbar/statbar.py")
     start("systemctl --user start hyprpolkitagent")
     start("swayosd-server")
     start("~/.config/hypr/scripts/no-repeat.sh")
