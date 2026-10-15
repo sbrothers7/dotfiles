@@ -3,10 +3,12 @@
 per focused app. Config: tablet-pad.json next to this file, re-read when it changes.
 
 The pad is grabbed (apps never see it); the pen is only read, so it keeps drawing normally and
-its top button (BTN_STYLUS3, which GTK apps ignore) is used as a trigger.
+its top button (BTN_STYLUS3, which GTK apps ignore) is used as a trigger. Pen strokes are also
+watched for a scribble (fast zig-zag), which can trigger an action, e.g. undoing it and the stroke before.
 Events come out of a uinput keyboard+wheel device, so they go to the focused window / pointer.
 """
 import json
+import math
 import os
 import re
 import select
@@ -147,6 +149,72 @@ class Touchpad:
         self.tid = (self.tid + 2) % 65536
 
 
+class Stroke:
+    """Collects one pen-tip stroke and tells whether it was a scribble: a fast back-and-forth
+    zig-zag along one direction (like scratching something out)."""
+    MIN_REVERSALS = 4      # sharp turns back, i.e. at least 5 legs
+    STEP_MM = 0.5          # path resampling
+    CUSP_MM = 1.5          # how far before/after a point the turn-back is measured
+    LEG_MM = (3, 60)       # median leg length
+    MAX_LEG_S = 0.35       # median time per leg: slower zig-zags are drawing (hatching), not scribbling
+
+    def __init__(self, pen):
+        self.res = pen.absinfo(e.ABS_X).resolution or 200  # units per mm
+        self.x = self.y = 0
+        self.down = False
+        self.rubber = False
+        self.points = []
+
+    def event(self, ev):
+        """Feed a pen event; returns the finished stroke's points when the tip lifts."""
+        if ev.type == e.EV_ABS and ev.code == e.ABS_X:
+            self.x = ev.value
+        elif ev.type == e.EV_ABS and ev.code == e.ABS_Y:
+            self.y = ev.value
+        elif ev.type == e.EV_KEY and ev.code == e.BTN_TOOL_RUBBER:
+            self.rubber = bool(ev.value)
+        elif ev.type == e.EV_KEY and ev.code == e.BTN_TOUCH:
+            self.down = bool(ev.value) and not self.rubber
+            if not ev.value:
+                points, self.points = self.points, []
+                return points
+        elif ev.type == e.EV_SYN and ev.code == e.SYN_REPORT and self.down:
+            self.points.append((ev.timestamp(), self.x, self.y))
+        return None
+
+    def is_scribble(self, points):
+        # resample every STEP_MM along the path, so speed and jitter don't matter
+        step = self.STEP_MM * self.res
+        path = [points[0]]
+        for t, x, y in points[1:]:
+            d = math.hypot(x - path[-1][1], y - path[-1][2])
+            while d >= step:
+                pt, px, py = path[-1]
+                f = step / d
+                path.append((pt + (t - pt) * f, px + (x - px) * f, py + (y - py) * f))
+                d -= step
+        # cusps: the pen comes back the way it went (incoming and outgoing directions over
+        # CUSP_MM differ by more than ~135 deg); smooth loops and curves have none
+        k = max(1, round(self.CUSP_MM / self.STEP_MM))
+        cusps = []
+        for i in range(k, len(path) - k):
+            (_, ax, ay), (_, bx, by), (_, cx, cy) = path[i - k], path[i], path[i + k]
+            u, v = (bx - ax, by - ay), (cx - bx, cy - by)
+            cos = (u[0] * v[0] + u[1] * v[1]) / (math.hypot(*u) * math.hypot(*v) or 1)
+            if cos < -0.7:
+                if cusps and i - cusps[-1][0] <= k:  # same cusp: keep the sharpest point
+                    if cos < cusps[-1][1]:
+                        cusps[-1] = (i, cos)
+                else:
+                    cusps.append((i, cos))
+        if len(cusps) < self.MIN_REVERSALS:
+            return False
+        ends = [0] + [i for i, _ in cusps] + [len(path) - 1]
+        legs = [((b - a) * self.STEP_MM, path[b][0] - path[a][0]) for a, b in zip(ends, ends[1:])]
+        length = sorted(g[0] for g in legs)[len(legs) // 2]
+        secs = sorted(g[1] for g in legs)[len(legs) // 2]
+        return self.LEG_MM[0] <= length <= self.LEG_MM[1] and secs <= self.MAX_LEG_S
+
 def osd(text):
     subprocess.Popen(["swayosd-client", "--custom-message", text, "--custom-icon", "input-tablet"],
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -161,6 +229,7 @@ class Mapper:
         self.modes = {}    # (profile index, dial) -> mode index
         self.toggles = {}  # (profile index, button) -> next index
         self.last_turn = {}  # dial -> time of its previous detent
+        self.tool = {}  # profile index -> last key a toggle sent (e.g. which GIMP tool is active)
 
     def reload(self):
         try:
@@ -172,7 +241,8 @@ class Mapper:
             for p in profiles:  # fail on bad key names now, not mid-stroke
                 for a in list(p.get("buttons", {}).values()) + [
                         x for modes in p.get("dials", {}).values() for m in modes
-                        for x in (m.get("cw"), m.get("ccw"), m.get("cw_fast"), m.get("ccw_fast")) if x]:
+                        for x in (m.get("cw"), m.get("ccw"), m.get("cw_fast"), m.get("ccw_fast")) if x] + [
+                        x for x in [p.get("scribble")] if x]:
                     for k in ("key", "hold"):
                         if k in a:
                             keycodes(a[k])
@@ -181,6 +251,7 @@ class Mapper:
             self.profiles, self.mtime = profiles, mtime
             self.modes.clear()
             self.toggles.clear()
+            self.tool.clear()
         except (OSError, ValueError, KeyError) as err:
             print(f"tablet-pad: config: {err}", file=sys.stderr)
             self.mtime = os.stat(CONFIG).st_mtime if os.path.exists(CONFIG) else None
@@ -207,10 +278,11 @@ class Mapper:
             return
         idx, _ = self.profile()
         if "key" in action:
-            self.out.tap(action["key"])
+            self.out.tap(action["key"], action.get("times", 1))
         elif "toggle" in action:
             n = self.toggles.get((idx, name), 0)
             self.out.tap(action["toggle"][n])
+            self.tool[idx] = action["toggle"][n]
             names = action.get("names")
             if names:
                 osd(names[n])
@@ -251,6 +323,19 @@ class Mapper:
             return
         for _ in range(abs(steps)):
             self.run(action, dial, True)
+
+    def stroke(self, stroke, points):
+        idx, p = self.profile()
+        action = p.get("scribble")
+        if not action or not points:
+            return
+        tools = action.get("tools")
+        if tools and self.tool.get(idx, tools[0]) not in tools:  # e.g. erasing: scribbles are wanted
+            return
+        if stroke.is_scribble(points):
+            print("tablet-pad: scribble", file=sys.stderr, flush=True)
+            time.sleep(0.05)  # let the app finish the stroke first
+            self.run(action, "scribble", True)
 
     def focus(self, wclass):
         if wclass != self.wclass:
@@ -299,6 +384,7 @@ def main():
             devs = {pad.fd: pad}
             if pen:
                 devs[pen.fd] = pen
+                stroke = Stroke(pen)
             try:
                 while True:
                     r, _, _ = select.select([hypr, *devs], [], [])
@@ -309,6 +395,10 @@ def main():
                         if fd is hypr:
                             continue
                         for ev in devs[fd].read():
+                            if devs[fd] is pen:
+                                points = stroke.event(ev)
+                                if points is not None:
+                                    mapper.stroke(stroke, points)
                             if ev.type == e.EV_KEY and ev.value in (0, 1):
                                 name = (PAD_BUTTONS if devs[fd] is pad else PEN_BUTTONS).get(ev.code)
                                 if name:

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Give GIMP the hidden shortcuts tablet-pad.json's dials send (tool options have none by default).
+# Give GIMP the hidden shortcuts tablet-pad.json's dials send (tool options have none by default),
+# and give each paint tool its own brush size (no shared brush), so brush and eraser sizes differ.
 # GIMP rewrites shortcutsrc on exit, so this only runs while GIMP is closed. Safe to re-run.
 set -euo pipefail
 
@@ -37,3 +38,10 @@ for s in "${SHORTCUTS[@]}"; do
     sed -i "s|^# end of shortcutsrc|(action \"$action\" $accels)\n&|" "$RC"
 done
 echo "added ${#SHORTCUTS[@]} shortcuts to $RC (backup: $RC.bak)"
+
+GIMPRC=$(dirname "$RC")/gimprc
+if [[ -f $GIMPRC ]]; then
+    sed -i '/^(global-brush /d' "$GIMPRC"
+    sed -i 's|^# end of gimprc|(global-brush no)\n&|' "$GIMPRC"
+    echo "set (global-brush no) in $GIMPRC"
+fi
