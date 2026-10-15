@@ -41,7 +41,7 @@ index 35c7ee0..9c6f873 100644
                                data);
 diff --git a/app/tools/gimppainttool-scribble.c b/app/tools/gimppainttool-scribble.c
 new file mode 100644
-index 0000000..c635ac6
+index 0000000..0a51db3
 --- /dev/null
 +++ b/app/tools/gimppainttool-scribble.c
 @@ -0,0 +1,812 @@
@@ -129,10 +129,10 @@ index 0000000..c635ac6
 +#define STEP_MM          0.5    /* path resampling                            */
 +#define CUSP_MM          1.5    /* turn-backs are measured over this distance */
 +#define CUSP_COS         -0.7   /* sharper than ~135 deg counts as turning    */
-+#define LEG_MIN_MM       3.0
++#define LEG_MIN_MM       1.5
 +#define LEG_MAX_MM       60.0
 +#define STRAIGHT         0.85   /* leg's end-to-end distance / path length    */
-+#define REVERSE          -0.94  /* consecutive legs: ~160 deg or more apart   */
++#define REVERSE          -0.88  /* consecutive legs: ~152 deg or more apart   */
 +#define PARALLEL         0.9    /* every other leg: within ~25 deg            */
 +#define LEG_RATIO        2.0    /* consecutive leg lengths differ at most     */
 +#define MAX_LEG_S        0.35   /* median seconds per leg                     */

@@ -160,9 +160,9 @@ class Stroke:
     MIN_LEGS = 5           # back-and-forth passes in a row
     STEP_MM = 0.5          # path resampling
     CUSP_MM = 1.5          # how far before/after a point the turn-back is measured
-    LEG_MM = (3, 60)       # leg length
+    LEG_MM = (1.5, 60)     # leg length
     STRAIGHT = 0.85        # leg's end-to-end distance / its path length
-    REVERSE = -0.94        # cos of the angle between consecutive legs (~160 deg or more: going back
+    REVERSE = -0.88        # cos of the angle between consecutive legs (~152 deg or more: going back
                            # over the same spot; drifting zig-zags look just like fast "iiii"/"minimum")
     PARALLEL = 0.9         # cos between every other leg (within ~25 deg: same direction)
     LEG_RATIO = 2.0        # consecutive legs' lengths differ by at most this factor
@@ -389,6 +389,21 @@ class Mapper:
             self.wclass = wclass
 
 
+STROKE_LOG = os.path.expanduser("~/.cache/tablet-pad-strokes.jsonl")
+
+
+def log_stroke(stroke, points, wclass):
+    """Debugging aid: while ~/.cache/tablet-pad-strokes.jsonl exists, append every pen stroke
+    (seconds, x mm, y mm) to it, for tuning the scribble detector."""
+    if not os.path.exists(STROKE_LOG) or len(points) < 2:
+        return
+    t0, r = points[0][0], stroke.res
+    with open(STROKE_LOG, "a") as f:
+        f.write(json.dumps({"class": wclass, "detected": stroke.is_scribble(points),
+                            "pts": [(round(t - t0, 4), round(x / r, 2), round(y / r, 2))
+                                    for t, x, y in points]}) + "\n")
+
+
 def find(suffix):
     for path in evdev.list_devices():
         d = evdev.InputDevice(path)
@@ -444,6 +459,7 @@ def main():
                             if devs[fd] is pen:
                                 points = stroke.event(ev)
                                 if points is not None:
+                                    log_stroke(stroke, points, mapper.wclass)
                                     mapper.stroke(stroke, points)
                             if ev.type == e.EV_KEY and ev.value in (0, 1):
                                 name = (PAD_BUTTONS if devs[fd] is pad else PEN_BUTTONS).get(ev.code)
