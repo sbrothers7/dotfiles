@@ -262,6 +262,7 @@ hl.on("hyprland.start", function()
     start("systemctl --user start hyprpolkitagent")
     start("swayosd-server")
     start("~/.config/hypr/scripts/no-repeat.sh")
+    start("~/.config/hypr/scripts/tablet-pad.py")   -- Wacom pad + pen top button -> keys per app, see tablet-pad.json
     start("~/.local/bin/chromium-wayland-flags")
     start([[swaybg -i "$(grep '^wallpaper' ~/.config/hypr/hyprpaper.conf | cut -d, -f2 | tr -d ' ')" -m fill]])
     -- give the compositor a moment so fcitx finds the input-method protocol

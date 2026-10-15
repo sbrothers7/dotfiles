@@ -1,0 +1,60 @@
+{
+  "_help": [
+    "Wacom Intuos Pro M (PTK670) pad + pen button mapping, read by tablet-pad.py; changes apply without restart.",
+    "Profiles are picked by the focused window's class (regex, first match wins, 'default' otherwise).",
+    "Pad buttons: left cluster top/right/bottom/left/center = l_top l_right l_bottom l_left l_center,",
+    "right cluster = r_top r_right r_bottom r_left r_center. Pen: pen_top (pen_middle / pen_bottom are left to the app).",
+    "Actions: {\"key\": \"ctrl+z\"} taps, {\"hold\": \"space\"} holds while pressed, {\"toggle\": [a, b], \"names\": [..]} alternates,",
+    "{\"mode\": \"left\"|\"right\"} cycles that dial's modes. Key names are evdev KEY_* without the prefix (ctrl, shift, alt, super ok).",
+    "Dial modes: {\"name\", \"cw\": action, \"ccw\": action} or {\"name\", \"scroll\": \"alt\"} (scroll up on clockwise, with those modifiers held).",
+    "Or {\"name\", \"pinch\": 1.05}: zoom by that factor per detent with a touchpad pinch gesture (GTK apps zoom by exactly that much).",
+    "Optional per cw/ccw mode: \"cw_fast\"/\"ccw_fast\" actions, used when the dial is turned quickly (detents < 80 ms apart).",
+    "GIMP: use keys, not scroll, for tool options. Scrolls come from a mouse device, so GIMP applies them to the mouse's tool options instead of the pen's.",
+    "Zoom: ctrl+scroll and ctrl+alt+shift+d/f step through GIMP's coarse zoom presets; use pinch for fine steps.",
+    "Brush size: ctrl+alt+shift+a/s = -/+1 px, c/v = -/+10 px, q/w = halve/double.",
+    "The ctrl+alt+shift+q/w/z/x/e/r/d/f keys are GIMP shortcuts for tools-size-*-percent / tools-hardness-* / tools-angle-* / view-zoom-*,",
+    "added to ~/.config/GIMP/3.2/shortcutsrc by gimp-pad-shortcuts.sh."
+  ],
+  "profiles": [
+    {
+      "class": "^gimp",
+      "buttons": {
+        "pen_top": {"toggle": ["b", "e"], "names": ["Paintbrush", "Eraser"]},
+        "l_top": {"key": "ctrl+z"},
+        "l_right": {"key": "x"},
+        "l_bottom": {"key": "ctrl+y"},
+        "l_left": {"hold": "ctrl"},
+        "l_center": {"mode": "left"},
+        "r_top": {"key": "ctrl+j"},
+        "r_right": {"key": "tab"},
+        "r_bottom": {"key": "1"},
+        "r_left": {"hold": "space"},
+        "r_center": {"mode": "right"}
+      },
+      "dials": {
+        "left": [
+          {"name": "Brush size", "cw": {"key": "ctrl+alt+shift+s"}, "ccw": {"key": "ctrl+alt+shift+a"},
+           "cw_fast": {"key": "ctrl+alt+shift+v"}, "ccw_fast": {"key": "ctrl+alt+shift+c"}},
+          {"name": "Opacity", "cw": {"key": "shift+dot"}, "ccw": {"key": "shift+comma"}},
+          {"name": "Hardness", "cw": {"key": "ctrl+alt+shift+x"}, "ccw": {"key": "ctrl+alt+shift+z"}}
+        ],
+        "right": [
+          {"name": "Zoom", "pinch": 1.05},
+          {"name": "Undo / Redo", "cw": {"key": "ctrl+y"}, "ccw": {"key": "ctrl+z"}},
+          {"name": "Brush angle", "cw": {"key": "ctrl+alt+shift+r"}, "ccw": {"key": "ctrl+alt+shift+e"}}
+        ]
+      }
+    },
+    {
+      "class": "default",
+      "buttons": {
+        "l_center": {"mode": "left"},
+        "r_center": {"mode": "right"}
+      },
+      "dials": {
+        "left": [{"name": "Scroll", "scroll": ""}],
+        "right": [{"name": "Zoom", "scroll": "ctrl"}]
+      }
+    }
+  ]
+}

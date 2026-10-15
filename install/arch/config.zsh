@@ -30,6 +30,7 @@ typeset -gA PKGS=(
     Clipboard "cliphist wl-clipboard"
     "Korean input" "fcitx5 fcitx5-gtk fcitx5-qt fcitx5-hangul fcitx5-configtool"
     python "python python-pip"
+    gimp "gimp python-evdev"   # python-evdev for ~/.config/hypr/scripts/tablet-pad.py (Wacom pad mapping)
     thunar "thunar thunar-archive-plugin thunar-volman tumbler gvfs gvfs-mtp ffmpegthumbnailer xarchiver"
     "Audio (PipeWire)" "pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber pamixer playerctl"
     Bluetooth "bluez bluez-utils"
