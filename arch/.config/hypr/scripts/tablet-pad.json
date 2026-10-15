@@ -8,7 +8,7 @@
     "{\"mode\": \"left\"|\"right\"} cycles that dial's modes. Key names are evdev KEY_* without the prefix (ctrl, shift, alt, super ok).",
     "Dial modes: {\"name\", \"cw\": action, \"ccw\": action} or {\"name\", \"scroll\": \"alt\"} (scroll up on clockwise, with those modifiers held).",
     "Or {\"name\", \"pinch\": 1.05}: zoom by that factor per detent with a touchpad pinch gesture (GTK apps zoom by exactly that much).",
-    "\"scribble\": action run when a pen stroke is a fast zig-zag (5+ legs going back over each other). In GIMP: undo the scribble",
+    "\"scribble\": action run when a pen stroke is a fast in-place zig-zag (5+ straight passes back over the same spot). In GIMP: undo the scribble",
     "and the stroke before it. \"tools\": only while a toggle (pen_top) last selected one of these keys (b = paintbrush), so scribbling",
     "with the eraser still erases; keys typed on the keyboard aren't seen, so switch tools with pen_top. Tuning: Stroke in tablet-pad.py.",
     "Optional per cw/ccw mode: \"cw_fast\"/\"ccw_fast\" actions, used when the dial is turned quickly (detents < 80 ms apart).",

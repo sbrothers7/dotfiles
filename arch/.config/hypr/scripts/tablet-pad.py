@@ -151,11 +151,21 @@ class Touchpad:
 
 class Stroke:
     """Collects one pen-tip stroke and tells whether it was a scribble: a fast back-and-forth
-    zig-zag along one direction (like scratching something out)."""
-    MIN_REVERSALS = 4      # sharp turns back, i.e. at least 5 legs
+    zig-zag along one direction (like scratching something out).
+
+    It needs a run of MIN_LEGS legs (pieces between sharp turn-backs) where every leg is nearly
+    straight, goes back the way the previous one came at a similar length, and is parallel to the
+    one before that. Handwriting has turn-backs too (n, m, u, i), but its legs curve (arches,
+    connectors) and change direction and length."""
+    MIN_LEGS = 5           # back-and-forth passes in a row
     STEP_MM = 0.5          # path resampling
     CUSP_MM = 1.5          # how far before/after a point the turn-back is measured
-    LEG_MM = (3, 60)       # median leg length
+    LEG_MM = (3, 60)       # leg length
+    STRAIGHT = 0.85        # leg's end-to-end distance / its path length
+    REVERSE = -0.94        # cos of the angle between consecutive legs (~160 deg or more: going back
+                           # over the same spot; drifting zig-zags look just like fast "iiii"/"minimum")
+    PARALLEL = 0.9         # cos between every other leg (within ~25 deg: same direction)
+    LEG_RATIO = 2.0        # consecutive legs' lengths differ by at most this factor
     MAX_LEG_S = 0.35       # median time per leg: slower zig-zags are drawing (hatching), not scribbling
 
     def __init__(self, pen):
@@ -207,13 +217,36 @@ class Stroke:
                         cusps[-1] = (i, cos)
                 else:
                     cusps.append((i, cos))
-        if len(cusps) < self.MIN_REVERSALS:
+        if len(cusps) < self.MIN_LEGS - 1:
             return False
         ends = [0] + [i for i, _ in cusps] + [len(path) - 1]
-        legs = [((b - a) * self.STEP_MM, path[b][0] - path[a][0]) for a, b in zip(ends, ends[1:])]
-        length = sorted(g[0] for g in legs)[len(legs) // 2]
-        secs = sorted(g[1] for g in legs)[len(legs) // 2]
-        return self.LEG_MM[0] <= length <= self.LEG_MM[1] and secs <= self.MAX_LEG_S
+        legs = []  # (chord vector in mm, chord length, seconds, ok on its own)
+        for a, b in zip(ends, ends[1:]):
+            dx, dy = (path[b][1] - path[a][1]) / self.res, (path[b][2] - path[a][2]) / self.res
+            chord, arc = math.hypot(dx, dy), (b - a) * self.STEP_MM
+            ok = self.LEG_MM[0] <= chord <= self.LEG_MM[1] and chord >= self.STRAIGHT * arc
+            legs.append(((dx, dy), chord, path[b][0] - path[a][0], ok))
+
+        def cos(g, h):
+            return (g[0][0] * h[0][0] + g[0][1] * h[0][1]) / (g[1] * h[1])
+
+        def follows(run, h):  # h continues the back-and-forth
+            g = run[-1]
+            return (cos(g, h) <= self.REVERSE and max(g[1], h[1]) <= self.LEG_RATIO * min(g[1], h[1])
+                    and (len(run) < 2 or cos(run[-2], h) >= self.PARALLEL))
+
+        run = []
+        for g in legs:
+            if not g[3]:
+                run = []
+            elif run and not follows(run, g):
+                run = [run[-1], g] if follows(run[-1:], g) else [g]
+            else:
+                run.append(g)
+            if len(run) >= self.MIN_LEGS:
+                if sorted(h[2] for h in run)[len(run) // 2] <= self.MAX_LEG_S:
+                    return True
+        return False
 
 def osd(text):
     subprocess.Popen(["swayosd-client", "--custom-message", text, "--custom-icon", "input-tablet"],
