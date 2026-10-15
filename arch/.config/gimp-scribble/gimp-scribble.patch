@@ -1,0 +1,912 @@
+diff --git a/app/tools/gimppainttool-paint.c b/app/tools/gimppainttool-paint.c
+index 35c7ee0..9c6f873 100644
+--- a/app/tools/gimppainttool-paint.c
++++ b/app/tools/gimppainttool-paint.c
+@@ -39,6 +39,7 @@
+ 
+ #include "gimppainttool.h"
+ #include "gimppainttool-paint.h"
++#include "gimppainttool-scribble.h"
+ #include "gimptools-utils.h"
+ 
+ 
+@@ -313,6 +314,9 @@ gimp_paint_tool_paint_start (GimpPaintTool     *paint_tool,
+   g_list_free (paint_tool->drawables);
+   paint_tool->drawables = drawables;
+ 
++  /*  Record the stroke for scribble-to-erase, before anything is painted  */
++  gimp_paint_tool_scribble_start (paint_tool, display, &curr_coords, time);
++
+   if ((display != tool->display) || ! paint_tool->draw_line)
+     {
+       /*  If this is a new display, reset the "last stroke's endpoint"
+@@ -461,6 +465,9 @@ gimp_paint_tool_paint_end (GimpPaintTool *paint_tool,
+     for (GList *iter = drawables; iter; iter = iter->next)
+       gimp_drawable_end_paint (iter->data);
+ 
++  /*  Keep the stroke, or erase what it scribbled over  */
++  gimp_paint_tool_scribble_end (paint_tool, cancel);
++
+   paint_tool->display = NULL;
+   g_clear_pointer (&paint_tool->drawables, g_list_free);
+ }
+@@ -567,6 +574,8 @@ gimp_paint_tool_paint_motion (GimpPaintTool    *paint_tool,
+       return;
+     }
+ 
++  gimp_paint_tool_scribble_motion (paint_tool, &data->coords, time);
++
+   gimp_paint_tool_paint_push (paint_tool,
+                               (GimpPaintToolPaintFunc) gimp_paint_tool_paint_interpolate,
+                               data);
+diff --git a/app/tools/gimppainttool-scribble.c b/app/tools/gimppainttool-scribble.c
+new file mode 100644
+index 0000000..c635ac6
+--- /dev/null
++++ b/app/tools/gimppainttool-scribble.c
+@@ -0,0 +1,812 @@
++/* GIMP - The GNU Image Manipulation Program
++ * Copyright (C) 1995 Spencer Kimball and Peter Mattis
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
++ */
++
++/*  Scribble to erase.
++ *
++ *  Every single-drawable paintbrush, pencil and eraser stroke is recorded:
++ *  its coords, a snapshot of its tool options, a copy-on-write copy of the
++ *  drawable from before it, and the undo step it pushed.  When a paintbrush
++ *  or pencil stroke turns out to be a scribble (a fast zig-zag going back and
++ *  forth over the same spot), the scribble is undone, the drawable is reset
++ *  to before the earliest recorded stroke the scribble crosses, and the later
++ *  strokes that weren't crossed are painted again on top, all as one
++ *  "Scribble Erase" undo step.
++ *
++ *  Raster strokes can only be taken apart while nothing else touched the
++ *  image in between, so a recorded stroke stays erasable only while its undo
++ *  step (and those of all recorded strokes after it) are still on top of the
++ *  undo stack: any other operation, undo or redo cuts the history there.
++ */
++
++#include "config.h"
++
++#include <string.h>
++
++#include <gegl.h>
++#include <gtk/gtk.h>
++
++#include "libgimpconfig/gimpconfig.h"
++#include "libgimpmath/gimpmath.h"
++
++#include "tools-types.h"
++
++#include "gegl/gimp-gegl-loops.h"
++#include "gegl/gimp-gegl-utils.h"
++
++#include "core/gimpcontainer.h"
++#include "core/gimpdrawable.h"
++#include "core/gimpimage.h"
++#include "core/gimpimage-undo.h"
++#include "core/gimpundo.h"
++#include "core/gimpundostack.h"
++
++#include "paint/gimperaser.h"
++#include "paint/gimppaintbrush.h"
++#include "paint/gimppaintcore.h"
++#include "paint/gimppaintcore-stroke.h"
++#include "paint/gimppaintoptions.h"
++#include "paint/gimppencil.h"
++
++#include "display/gimpdisplay.h"
++#include "display/gimpdisplayshell.h"
++
++#include "gimppainttool.h"
++#include "gimppainttool-scribble.h"
++
++#include "gimp-intl.h"
++
++
++#define HISTORY_KEY      "gimp-paint-tool-scribble-history"
++#define MAX_HISTORY      100
++
++/*  Scribble shape, in millimetres of pen travel.  Strokes are measured on
++ *  screen (so zoom doesn't matter) and converted with PX_PER_MM, the screen
++ *  pixels per tablet millimetre (GIMP_SCRIBBLE_PX_PER_MM overrides it).
++ */
++#define PX_PER_MM        12.0
++#define MIN_LEGS         5      /* back-and-forth passes in a row             */
++#define STEP_MM          0.5    /* path resampling                            */
++#define CUSP_MM          1.5    /* turn-backs are measured over this distance */
++#define CUSP_COS         -0.7   /* sharper than ~135 deg counts as turning    */
++#define LEG_MIN_MM       3.0
++#define LEG_MAX_MM       60.0
++#define STRAIGHT         0.85   /* leg's end-to-end distance / path length    */
++#define REVERSE          -0.94  /* consecutive legs: ~160 deg or more apart   */
++#define PARALLEL         0.9    /* every other leg: within ~25 deg            */
++#define LEG_RATIO        2.0    /* consecutive leg lengths differ at most     */
++#define MAX_LEG_S        0.35   /* median seconds per leg                     */
++
++
++typedef struct
++{
++  GimpDrawable     *drawable;
++  GType             core_type;
++  GimpPaintOptions *options;   /*  snapshot, to paint the stroke again       */
++  GArray           *coords;    /*  GimpCoords, image coordinates             */
++  GArray           *times;     /*  guint32 event times in ms                 */
++  gdouble           scale;     /*  display scale while it was drawn          */
++  gdouble           radius;    /*  brush radius in image pixels              */
++  GeglRectangle     bounds;    /*  drawable offset and size when drawn       */
++  GeglBuffer       *before;    /*  the drawable's pixels before the stroke   */
++  GimpUndo         *undo_top;  /*  top of the undo stack before the stroke   */
++  GimpUndo         *undo;      /*  the undo step holding the stroke          */
++  gboolean          erasable;  /*  paintbrush/pencil, not eraser             */
++} Stroke;
++
++typedef struct
++{
++  gdouble t, x, y;
++} Point;
++
++typedef struct
++{
++  gdouble dx, dy, len, secs;
++} Leg;
++
++
++static Stroke *current = NULL;
++
++
++/*  strokes  */
++
++static void
++stroke_free (Stroke *stroke)
++{
++  if (! stroke)
++    return;
++
++  g_clear_object (&stroke->drawable);
++  g_clear_object (&stroke->options);
++  g_clear_object (&stroke->before);
++  g_clear_object (&stroke->undo_top);
++  g_clear_object (&stroke->undo);
++  g_array_free (stroke->coords, TRUE);
++  g_array_free (stroke->times, TRUE);
++  g_free (stroke);
++}
++
++static void
++stroke_get_bounds (GimpDrawable  *drawable,
++                   GeglRectangle *bounds)
++{
++  gimp_item_get_offset (GIMP_ITEM (drawable), &bounds->x, &bounds->y);
++  bounds->width  = gimp_item_get_width  (GIMP_ITEM (drawable));
++  bounds->height = gimp_item_get_height (GIMP_ITEM (drawable));
++}
++
++/*  the area a stroke can have painted, in drawable coordinates  */
++static void
++stroke_get_extent (Stroke        *stroke,
++                   GeglRectangle *rect)
++{
++  gdouble x1 = G_MAXDOUBLE, y1 = G_MAXDOUBLE;
++  gdouble x2 = -G_MAXDOUBLE, y2 = -G_MAXDOUBLE;
++  gdouble margin = 2.0 * stroke->radius + 4.0;
++  guint   i;
++
++  for (i = 0; i < stroke->coords->len; i++)
++    {
++      GimpCoords *c = &g_array_index (stroke->coords, GimpCoords, i);
++
++      x1 = MIN (x1, c->x);
++      y1 = MIN (y1, c->y);
++      x2 = MAX (x2, c->x);
++      y2 = MAX (y2, c->y);
++    }
++
++  rect->x      = floor (x1 - margin) - stroke->bounds.x;
++  rect->y      = floor (y1 - margin) - stroke->bounds.y;
++  rect->width  = ceil (x2 + margin) - stroke->bounds.x - rect->x;
++  rect->height = ceil (y2 + margin) - stroke->bounds.y - rect->y;
++}
++
++
++/*  history  */
++
++static GPtrArray *
++history_get (GimpImage *image)
++{
++  GPtrArray *history = g_object_get_data (G_OBJECT (image), HISTORY_KEY);
++
++  if (! history)
++    {
++      history = g_ptr_array_new_with_free_func ((GDestroyNotify) stroke_free);
++      g_object_set_data_full (G_OBJECT (image), HISTORY_KEY, history,
++                              (GDestroyNotify) g_ptr_array_unref);
++    }
++
++  return history;
++}
++
++/*  Drop recorded strokes whose undo steps are no longer an unbroken run at
++ *  the top of the undo stack (from index "top" down).  Strokes repainted by
++ *  a scribble erase share that erase's undo step.
++ */
++static void
++history_validate (GPtrArray *history,
++                  GimpImage *image,
++                  gint       top)
++{
++  GimpContainer *undos = gimp_image_get_undo_stack (image)->undos;
++  gint           i     = top;
++  gint           k;
++
++  for (k = (gint) history->len - 1; k >= 0; k--)
++    {
++      Stroke   *stroke = g_ptr_array_index (history, k);
++      GimpUndo *at     = GIMP_UNDO (gimp_container_get_child_by_index (undos, i));
++
++      if (stroke->undo == at && gimp_item_is_attached (GIMP_ITEM (stroke->drawable)))
++        continue;
++
++      if (k < (gint) history->len - 1 &&
++          stroke->undo == GIMP_UNDO (gimp_container_get_child_by_index (undos, i + 1)) &&
++          gimp_item_is_attached (GIMP_ITEM (stroke->drawable)))
++        {
++          i++;
++          continue;
++        }
++
++      g_ptr_array_remove_range (history, 0, k + 1);
++      break;
++    }
++}
++
++
++/*  scribble detection  */
++
++static gint
++compare_doubles (gconstpointer a,
++                 gconstpointer b)
++{
++  gdouble x = *(const gdouble *) a;
++  gdouble y = *(const gdouble *) b;
++
++  return (x > y) - (x < y);
++}
++
++static gdouble
++median_secs (const Leg *legs,
++             gint       n)
++{
++  gdouble *secs = g_new (gdouble, n);
++  gdouble  median;
++  gint     i;
++
++  for (i = 0; i < n; i++)
++    secs[i] = legs[i].secs;
++
++  qsort (secs, n, sizeof (gdouble), compare_doubles);
++  median = secs[n / 2];
++  g_free (secs);
++
++  return median;
++}
++
++static gdouble
++leg_cos (const Leg *a,
++         const Leg *b)
++{
++  return (a->dx * b->dx + a->dy * b->dy) / (a->len * b->len);
++}
++
++static gboolean
++leg_follows (const Leg *run,
++             gint       n,
++             const Leg *leg)
++{
++  const Leg *prev = &run[n - 1];
++
++  if (leg_cos (prev, leg) > REVERSE)
++    return FALSE;
++
++  if (MAX (prev->len, leg->len) > LEG_RATIO * MIN (prev->len, leg->len))
++    return FALSE;
++
++  return n < 2 || leg_cos (&run[n - 2], leg) >= PARALLEL;
++}
++
++static gboolean
++stroke_is_scribble (Stroke *stroke)
++{
++  static gdouble  px_per_mm = 0.0;
++  GArray         *path;
++  GArray         *cusps;
++  Leg            *legs;
++  Leg            *run;
++  gdouble         mm;
++  gint            n_legs, n_run, k, i;
++  gboolean        found = FALSE;
++
++  if (px_per_mm <= 0.0)
++    {
++      const gchar *env = g_getenv ("GIMP_SCRIBBLE_PX_PER_MM");
++
++      px_per_mm = env ? g_ascii_strtod (env, NULL) : 0.0;
++      if (px_per_mm <= 0.0)
++        px_per_mm = PX_PER_MM;
++    }
++
++  if (stroke->coords->len < 10)
++    return FALSE;
++
++  /*  image pixels -> mm of pen travel  */
++  mm = stroke->scale / px_per_mm;
++
++  /*  resample every STEP_MM along the path  */
++  path = g_array_new (FALSE, FALSE, sizeof (Point));
++
++  for (i = 0; i < stroke->coords->len; i++)
++    {
++      GimpCoords *c = &g_array_index (stroke->coords, GimpCoords, i);
++      Point       p = { g_array_index (stroke->times, guint32, i) / 1000.0,
++                        c->x * mm, c->y * mm };
++      Point      *last;
++      gdouble     d;
++
++      if (path->len == 0)
++        {
++          g_array_append_val (path, p);
++          continue;
++        }
++
++      last = &g_array_index (path, Point, path->len - 1);
++      d    = hypot (p.x - last->x, p.y - last->y);
++
++      while (d >= STEP_MM)
++        {
++          gdouble f = STEP_MM / d;
++          Point   q = { last->t + (p.t - last->t) * f,
++                        last->x + (p.x - last->x) * f,
++                        last->y + (p.y - last->y) * f };
++
++          g_array_append_val (path, q);
++          last = &g_array_index (path, Point, path->len - 1);
++          d   -= STEP_MM;
++        }
++    }
++
++  /*  cusps: the pen comes back the way it went  */
++  k     = MAX (1, (gint) (CUSP_MM / STEP_MM + 0.5));
++  cusps = g_array_new (FALSE, FALSE, sizeof (gint));
++
++  {
++    gdouble last_cos = 0.0;
++
++    for (i = k; i < (gint) path->len - k; i++)
++      {
++        Point   *a = &g_array_index (path, Point, i - k);
++        Point   *b = &g_array_index (path, Point, i);
++        Point   *c = &g_array_index (path, Point, i + k);
++        gdouble  ux = b->x - a->x, uy = b->y - a->y;
++        gdouble  vx = c->x - b->x, vy = c->y - b->y;
++        gdouble  norm = hypot (ux, uy) * hypot (vx, vy);
++        gdouble  cos  = norm > 0.0 ? (ux * vx + uy * vy) / norm : 1.0;
++
++        if (cos < CUSP_COS)
++          {
++            gint *prev = cusps->len ? &g_array_index (cusps, gint, cusps->len - 1) : NULL;
++
++            if (prev && i - *prev <= k)
++              {
++                if (cos < last_cos)
++                  {
++                    *prev    = i;
++                    last_cos = cos;
++                  }
++              }
++            else
++              {
++                g_array_append_val (cusps, i);
++                last_cos = cos;
++              }
++          }
++      }
++  }
++
++  if (cusps->len + 1 < MIN_LEGS)
++    {
++      g_array_free (cusps, TRUE);
++      g_array_free (path, TRUE);
++      return FALSE;
++    }
++
++  /*  legs between cusps; look for MIN_LEGS straight passes in a row, each
++   *  going back over the previous one
++   */
++  legs   = g_new (Leg, cusps->len + 1);
++  run    = g_new (Leg, cusps->len + 1);
++  n_legs = 0;
++  n_run  = 0;
++
++  for (i = 0; i <= (gint) cusps->len && ! found; i++)
++    {
++      gint     a = i == 0 ? 0 : g_array_index (cusps, gint, i - 1);
++      gint     b = i == cusps->len ? path->len - 1 : g_array_index (cusps, gint, i);
++      Point   *pa = &g_array_index (path, Point, a);
++      Point   *pb = &g_array_index (path, Point, b);
++      Leg      leg;
++      gboolean ok;
++
++      leg.dx   = pb->x - pa->x;
++      leg.dy   = pb->y - pa->y;
++      leg.len  = hypot (leg.dx, leg.dy);
++      leg.secs = pb->t - pa->t;
++
++      legs[n_legs++] = leg;
++
++      ok = (leg.len >= LEG_MIN_MM && leg.len <= LEG_MAX_MM &&
++            leg.len >= STRAIGHT * (b - a) * STEP_MM);
++
++      if (! ok)
++        {
++          n_run = 0;
++        }
++      else if (n_run > 0 && ! leg_follows (run, n_run, &leg))
++        {
++          if (leg_follows (&run[n_run - 1], 1, &leg))
++            {
++              run[0] = run[n_run - 1];
++              n_run  = 1;
++            }
++          else
++            {
++              n_run = 0;
++            }
++
++          run[n_run++] = leg;
++        }
++      else
++        {
++          run[n_run++] = leg;
++        }
++
++      if (n_run >= MIN_LEGS && median_secs (run, n_run) <= MAX_LEG_S)
++        found = TRUE;
++    }
++
++  g_free (run);
++  g_free (legs);
++  g_array_free (cusps, TRUE);
++  g_array_free (path, TRUE);
++
++  return found;
++}
++
++
++/*  hit test: does the scribble pass over the stroke?  */
++
++static gdouble
++segment_distance (const GimpCoords *p,
++                  const GimpCoords *a,
++                  const GimpCoords *b)
++{
++  gdouble dx = b->x - a->x;
++  gdouble dy = b->y - a->y;
++  gdouble l2 = dx * dx + dy * dy;
++  gdouble t  = l2 > 0.0 ? ((p->x - a->x) * dx + (p->y - a->y) * dy) / l2 : 0.0;
++
++  t = CLAMP (t, 0.0, 1.0);
++
++  return hypot (p->x - (a->x + t * dx), p->y - (a->y + t * dy));
++}
++
++static gboolean
++stroke_hits (Stroke *stroke,
++             Stroke *scribble)
++{
++  GeglRectangle s_rect;
++  GeglRectangle c_rect;
++  gdouble       tolerance = stroke->radius + 2.0;
++  guint         i, j;
++
++  stroke_get_extent (stroke,   &s_rect);
++  stroke_get_extent (scribble, &c_rect);
++
++  if (! gegl_rectangle_intersect (NULL, &s_rect, &c_rect))
++    return FALSE;
++
++  for (i = 0; i < stroke->coords->len; i++)
++    {
++      GimpCoords *p = &g_array_index (stroke->coords, GimpCoords, i);
++
++      for (j = 0; j + 1 < scribble->coords->len; j++)
++        {
++          if (segment_distance (p,
++                                &g_array_index (scribble->coords, GimpCoords, j),
++                                &g_array_index (scribble->coords, GimpCoords, j + 1))
++              <= tolerance)
++            return TRUE;
++        }
++    }
++
++  return FALSE;
++}
++
++
++/*  erase  */
++
++static gint
++scribble_erase (GPtrArray *history,
++                GimpImage *image,
++                Stroke    *scribble)
++{
++  GimpDrawable  *drawable = scribble->drawable;
++  GeglBuffer    *buffer;
++  GeglBuffer    *before;
++  GeglBuffer    *undo_buffer;
++  GeglRectangle  rect = { 0, 0, 0, 0 };
++  gboolean       have_rect = FALSE;
++  GeglRectangle  drawable_rect;
++  GPtrArray     *repainted;
++  GPtrArray     *kept;
++  GimpUndo      *undo;
++  gboolean      *hit;
++  gint           first = -1;
++  gint           n_hit = 0;
++  gint           i;
++
++  hit = g_new0 (gboolean, history->len);
++
++  for (i = 0; i < history->len; i++)
++    {
++      Stroke *stroke = g_ptr_array_index (history, i);
++
++      if (stroke->drawable == drawable &&
++          stroke->erasable             &&
++          stroke_hits (stroke, scribble))
++        {
++          hit[i] = TRUE;
++          n_hit++;
++
++          if (first < 0)
++            first = i;
++        }
++    }
++
++  if (first < 0)
++    {
++      g_free (hit);
++      return 0;
++    }
++
++  /*  remove the scribble itself  */
++  if (! gimp_image_undo (image))
++    {
++      g_free (hit);
++      return 0;
++    }
++
++  buffer = gimp_drawable_get_buffer (drawable);
++  before = gimp_gegl_buffer_dup (buffer);
++
++  /*  the area to rebuild: everything the strokes from the first hit on
++   *  could have painted
++   */
++  for (i = first; i < history->len; i++)
++    {
++      Stroke        *stroke = g_ptr_array_index (history, i);
++      GeglRectangle  extent;
++
++      if (stroke->drawable != drawable)
++        continue;
++
++      stroke_get_extent (stroke, &extent);
++
++      if (have_rect)
++        gegl_rectangle_bounding_box (&rect, &rect, &extent);
++      else
++        rect = extent;
++
++      have_rect = TRUE;
++    }
++
++  drawable_rect = *GEGL_RECTANGLE (0, 0,
++                                   gimp_item_get_width  (GIMP_ITEM (drawable)),
++                                   gimp_item_get_height (GIMP_ITEM (drawable)));
++  gegl_rectangle_intersect (&rect, &rect, &drawable_rect);
++
++  /*  back to before the first hit stroke ...  */
++  gimp_gegl_buffer_copy (((Stroke *) g_ptr_array_index (history, first))->before,
++                         &rect, GEGL_ABYSS_NONE, buffer, &rect);
++
++  /*  ... and paint the strokes after it again, except the hit ones  */
++  repainted = g_ptr_array_new ();
++
++  for (i = first + 1; i < history->len; i++)
++    {
++      Stroke        *stroke = g_ptr_array_index (history, i);
++      GimpPaintCore *core;
++      GError        *error = NULL;
++
++      if (stroke->drawable != drawable || hit[i])
++        continue;
++
++      g_object_unref (stroke->before);
++      stroke->before = gimp_gegl_buffer_dup (buffer);
++
++      core = g_object_new (stroke->core_type, NULL);
++
++      if (! gimp_paint_core_stroke (core, drawable, stroke->options,
++                                    (GimpCoords *) stroke->coords->data,
++                                    stroke->coords->len, FALSE, &error))
++        {
++          g_printerr ("scribble erase: repainting a stroke failed: %s\n",
++                      error ? error->message : "?");
++          g_clear_error (&error);
++        }
++
++      g_object_unref (core);
++
++      g_ptr_array_add (repainted, stroke);
++    }
++
++  gimp_drawable_update (drawable, rect.x, rect.y, rect.width, rect.height);
++
++  /*  one undo step with the pixels from before  */
++  gimp_image_undo_group_start (image, GIMP_UNDO_GROUP_PAINT,
++                               _("Scribble Erase"));
++
++  undo_buffer = gegl_buffer_new (GEGL_RECTANGLE (0, 0, rect.width, rect.height),
++                                 gimp_drawable_get_format (drawable));
++  gimp_gegl_buffer_copy (before, &rect, GEGL_ABYSS_NONE,
++                         undo_buffer, GEGL_RECTANGLE (0, 0, 0, 0));
++  gimp_drawable_push_undo (drawable, _("Scribble Erase"), undo_buffer,
++                           rect.x, rect.y, rect.width, rect.height);
++  g_object_unref (undo_buffer);
++
++  gimp_image_undo_group_end (image);
++
++  g_object_unref (before);
++
++  /*  history: drop the erased strokes; the repainted ones now live in the
++   *  erase's undo step, so they move to the end
++   */
++  undo = gimp_undo_stack_peek (gimp_image_get_undo_stack (image));
++  kept = g_ptr_array_new ();
++
++  for (i = 0; i < history->len; i++)
++    {
++      Stroke *stroke = g_ptr_array_index (history, i);
++
++      if (i < first || stroke->drawable != drawable)
++        g_ptr_array_add (kept, stroke);
++      else if (hit[i])
++        stroke_free (stroke);
++    }
++
++  for (i = 0; i < repainted->len; i++)
++    {
++      Stroke *stroke = g_ptr_array_index (repainted, i);
++
++      g_set_object (&stroke->undo, undo);
++      g_ptr_array_add (kept, stroke);
++    }
++
++  g_ptr_array_set_free_func (history, NULL);
++  g_ptr_array_set_size (history, 0);
++  for (i = 0; i < kept->len; i++)
++    g_ptr_array_add (history, g_ptr_array_index (kept, i));
++  g_ptr_array_set_free_func (history, (GDestroyNotify) stroke_free);
++
++  g_ptr_array_unref (kept);
++  g_ptr_array_unref (repainted);
++  g_free (hit);
++
++  return n_hit;
++}
++
++
++/*  public functions  */
++
++void
++gimp_paint_tool_scribble_start (GimpPaintTool    *paint_tool,
++                                GimpDisplay      *display,
++                                const GimpCoords *coords,
++                                guint32           time)
++{
++  static gint       enabled = -1;
++  GimpPaintOptions *options;
++  GimpDisplayShell *shell;
++  GimpDrawable     *drawable;
++  GimpImage        *image;
++  GimpUndo         *top;
++  GType             type;
++  Stroke           *stroke;
++
++  g_clear_pointer (&current, stroke_free);
++
++  if (enabled < 0)
++    enabled = g_strcmp0 (g_getenv ("GIMP_SCRIBBLE"), "0") != 0;
++
++  if (! enabled || paint_tool->draw_line ||
++      g_list_length (paint_tool->drawables) != 1)
++    return;
++
++  type = G_OBJECT_TYPE (paint_tool->core);
++
++  if (type != GIMP_TYPE_PAINTBRUSH &&
++      type != GIMP_TYPE_PENCIL     &&
++      type != GIMP_TYPE_ERASER)
++    return;
++
++  drawable = paint_tool->drawables->data;
++  image    = gimp_display_get_image (display);
++  shell    = gimp_display_get_shell (display);
++  options  = GIMP_PAINT_TOOL_GET_OPTIONS (paint_tool);
++
++  if (! gimp_image_undo_is_enabled (image))
++    return;
++
++  stroke = g_new0 (Stroke, 1);
++
++  stroke->drawable  = g_object_ref (drawable);
++  stroke->core_type = type;
++  stroke->options   = GIMP_PAINT_OPTIONS (gimp_config_duplicate (GIMP_CONFIG (options)));
++  stroke->coords    = g_array_new (FALSE, FALSE, sizeof (GimpCoords));
++  stroke->times     = g_array_new (FALSE, FALSE, sizeof (guint32));
++  stroke->scale     = sqrt (shell->scale_x * shell->scale_y);
++  stroke->radius    = options->brush_size / 2.0;
++  stroke->before    = gimp_gegl_buffer_dup (gimp_drawable_get_buffer (drawable));
++  stroke->erasable  = type != GIMP_TYPE_ERASER;
++
++  stroke_get_bounds (drawable, &stroke->bounds);
++
++  top = gimp_undo_stack_peek (gimp_image_get_undo_stack (image));
++  if (top)
++    stroke->undo_top = g_object_ref (top);
++
++  g_array_append_val (stroke->coords, *coords);
++  g_array_append_val (stroke->times, time);
++
++  current = stroke;
++}
++
++void
++gimp_paint_tool_scribble_motion (GimpPaintTool    *paint_tool,
++                                 const GimpCoords *coords,
++                                 guint32           time)
++{
++  if (! current || paint_tool->draw_line)
++    return;
++
++  g_array_append_val (current->coords, *coords);
++  g_array_append_val (current->times, time);
++}
++
++void
++gimp_paint_tool_scribble_end (GimpPaintTool *paint_tool,
++                              gboolean       cancel)
++{
++  Stroke        *stroke = current;
++  GimpImage     *image;
++  GPtrArray     *history;
++  GimpUndo      *undo;
++  GeglRectangle  bounds;
++  gint           n_erased;
++
++  current = NULL;
++
++  if (! stroke)
++    return;
++
++  image   = gimp_item_get_image (GIMP_ITEM (stroke->drawable));
++  history = history_get (image);
++  undo    = gimp_undo_stack_peek (gimp_image_get_undo_stack (image));
++
++  stroke_get_bounds (stroke->drawable, &bounds);
++
++  if (cancel || ! undo || undo == stroke->undo_top)
++    {
++      /*  nothing was painted  */
++      stroke_free (stroke);
++      return;
++    }
++
++  if (! gegl_rectangle_equal (&bounds, &stroke->bounds))
++    {
++      /*  the layer grew while painting: can't be taken apart  */
++      g_ptr_array_set_size (history, 0);
++      stroke_free (stroke);
++      return;
++    }
++
++  stroke->undo = g_object_ref (undo);
++  g_clear_object (&stroke->undo_top);
++
++  history_validate (history, image, 1);
++
++  if (stroke->erasable && stroke_is_scribble (stroke))
++    {
++      n_erased = scribble_erase (history, image, stroke);
++
++      if (n_erased > 0)
++        {
++          gimp_tool_replace_status (GIMP_TOOL (paint_tool), paint_tool->display,
++                                    ngettext ("Scribble erased %d stroke",
++                                              "Scribble erased %d strokes",
++                                              n_erased), n_erased);
++          stroke_free (stroke);
++          return;
++        }
++    }
++
++  g_ptr_array_add (history, stroke);
++
++  if (history->len > MAX_HISTORY)
++    g_ptr_array_remove_range (history, 0, history->len - MAX_HISTORY);
++}
+diff --git a/app/tools/gimppainttool-scribble.h b/app/tools/gimppainttool-scribble.h
+new file mode 100644
+index 0000000..c0b9e82
+--- /dev/null
++++ b/app/tools/gimppainttool-scribble.h
+@@ -0,0 +1,35 @@
++/* GIMP - The GNU Image Manipulation Program
++ * Copyright (C) 1995 Spencer Kimball and Peter Mattis
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
++ */
++
++#pragma once
++
++
++/*  Scribble to erase: paintbrush/pencil/eraser strokes are recorded, and a
++ *  fast in-place zig-zag drawn with the paintbrush or pencil removes the
++ *  recorded strokes it crosses (later strokes are replayed on top), like
++ *  GoodNotes.  Set GIMP_SCRIBBLE=0 to disable.
++ */
++
++void   gimp_paint_tool_scribble_start  (GimpPaintTool    *paint_tool,
++                                        GimpDisplay      *display,
++                                        const GimpCoords *coords,
++                                        guint32           time);
++void   gimp_paint_tool_scribble_motion (GimpPaintTool    *paint_tool,
++                                        const GimpCoords *coords,
++                                        guint32           time);
++void   gimp_paint_tool_scribble_end    (GimpPaintTool    *paint_tool,
++                                        gboolean          cancel);
+diff --git a/app/tools/meson.build b/app/tools/meson.build
+index 91e976c..ea67825 100644
+--- a/app/tools/meson.build
++++ b/app/tools/meson.build
+@@ -89,6 +89,7 @@ libapptools_sources = [
+   'gimppaintselectoptions.c',
+   'gimppaintselecttool.c',
+   'gimppainttool-paint.c',
++  'gimppainttool-scribble.c',
+   'gimppainttool.c',
+   'gimppathoptions.c',
+   'gimppathtool.c',

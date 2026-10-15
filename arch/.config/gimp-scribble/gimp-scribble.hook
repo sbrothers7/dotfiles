@@ -1,0 +1,10 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = gimp
+
+[Action]
+Description = Checking GIMP for the scribble-to-erase patch...
+When = PostTransaction
+Exec = /bin/sh -c 'LC_ALL=C pacman -Qi gimp | grep -q scribble-to-erase || echo "==> GIMP was updated without the scribble-to-erase patch. Rebuild it with: @BUILD@"'

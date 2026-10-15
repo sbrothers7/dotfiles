@@ -263,6 +263,7 @@ class Mapper:
         self.toggles = {}  # (profile index, button) -> next index
         self.last_turn = {}  # dial -> time of its previous detent
         self.tool = {}  # profile index -> last key a toggle sent (e.g. which GIMP tool is active)
+        self.checks = {}  # "unless" shell command -> (time checked, it succeeded)
 
     def reload(self):
         try:
@@ -366,9 +367,21 @@ class Mapper:
         if tools and self.tool.get(idx, tools[0]) not in tools:  # e.g. erasing: scribbles are wanted
             return
         if stroke.is_scribble(points):
+            if action.get("unless") and self.check(action["unless"]):
+                return
             print("tablet-pad: scribble", file=sys.stderr, flush=True)
             time.sleep(0.05)  # let the app finish the stroke first
             self.run(action, "scribble", True)
+
+    def check(self, cmd):
+        """Whether a shell command succeeds, re-run at most once a minute."""
+        now = time.monotonic()
+        when, ok = self.checks.get(cmd, (None, False))
+        if when is None or now - when > 60:
+            ok = subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL).returncode == 0
+            self.checks[cmd] = (now, ok)
+        return ok
 
     def focus(self, wclass):
         if wclass != self.wclass:
