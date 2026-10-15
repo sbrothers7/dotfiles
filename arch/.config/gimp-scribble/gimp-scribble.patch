@@ -41,10 +41,10 @@ index 35c7ee0..9c6f873 100644
                                data);
 diff --git a/app/tools/gimppainttool-scribble.c b/app/tools/gimppainttool-scribble.c
 new file mode 100644
-index 0000000..0a51db3
+index 0000000..d583f00
 --- /dev/null
 +++ b/app/tools/gimppainttool-scribble.c
-@@ -0,0 +1,812 @@
+@@ -0,0 +1,913 @@
 +/* GIMP - The GNU Image Manipulation Program
 + * Copyright (C) 1995 Spencer Kimball and Peter Mattis
 + *
@@ -86,6 +86,9 @@ index 0000000..0a51db3
 +#include <gegl.h>
 +#include <gtk/gtk.h>
 +
++#include <glib/gstdio.h>
++
++#include "libgimpbase/gimpbase.h"
 +#include "libgimpconfig/gimpconfig.h"
 +#include "libgimpmath/gimpmath.h"
 +
@@ -118,24 +121,53 @@ index 0000000..0a51db3
 +
 +
 +#define HISTORY_KEY      "gimp-paint-tool-scribble-history"
-+#define MAX_HISTORY      100
++#define SETTINGS_FILE    "scribble.ini"
++#define SETTINGS_GROUP   "scribble"
 +
-+/*  Scribble shape, in millimetres of pen travel.  Strokes are measured on
-+ *  screen (so zoom doesn't matter) and converted with PX_PER_MM, the screen
-+ *  pixels per tablet millimetre (GIMP_SCRIBBLE_PX_PER_MM overrides it).
++
++/*  The thresholds live in scribble.ini in the GIMP profile (edited with
++ *  Edit > Scribble Settings), re-read whenever the file changes.  Scribble
++ *  shapes are in millimetres of pen travel: strokes are measured on screen
++ *  (so zoom doesn't matter) and converted with px_per_mm, the screen pixels
++ *  per tablet millimetre.
 + */
-+#define PX_PER_MM        12.0
-+#define MIN_LEGS         5      /* back-and-forth passes in a row             */
-+#define STEP_MM          0.5    /* path resampling                            */
-+#define CUSP_MM          1.5    /* turn-backs are measured over this distance */
-+#define CUSP_COS         -0.7   /* sharper than ~135 deg counts as turning    */
-+#define LEG_MIN_MM       1.5
-+#define LEG_MAX_MM       60.0
-+#define STRAIGHT         0.85   /* leg's end-to-end distance / path length    */
-+#define REVERSE          -0.88  /* consecutive legs: ~152 deg or more apart   */
-+#define PARALLEL         0.9    /* every other leg: within ~25 deg            */
-+#define LEG_RATIO        2.0    /* consecutive leg lengths differ at most     */
-+#define MAX_LEG_S        0.35   /* median seconds per leg                     */
++typedef struct
++{
++  gboolean enabled;
++  gint     passes;          /* back-and-forth passes in a row               */
++  gdouble  pass_min_mm;     /* pass length                                  */
++  gdouble  pass_max_mm;
++  gdouble  pass_seconds;    /* median time per pass: slower is hatching     */
++  gdouble  px_per_mm;
++  gdouble  turn_angle;      /* consecutive passes at least this far apart   */
++  gdouble  parallel_angle;  /* every other pass at most this far apart      */
++  gdouble  straightness;    /* pass end-to-end distance / path length       */
++  gdouble  length_ratio;    /* consecutive pass lengths differ at most      */
++  gdouble  cusp_angle;      /* a turn sharper than this ends a pass         */
++  gdouble  cusp_mm;         /* turns are measured over this distance        */
++  gdouble  step_mm;         /* path resampling                              */
++  gdouble  hit_margin_px;   /* scribble to stroke distance beyond its brush */
++  gint     history;         /* strokes remembered per image                 */
++} Settings;
++
++static const Settings defaults =
++{
++  .enabled        = TRUE,
++  .passes         = 5,
++  .pass_min_mm    = 1.5,
++  .pass_max_mm    = 60.0,
++  .pass_seconds   = 0.35,
++  .px_per_mm      = 12.0,
++  .turn_angle     = 152.0,
++  .parallel_angle = 26.0,
++  .straightness   = 0.85,
++  .length_ratio   = 2.0,
++  .cusp_angle     = 135.0,
++  .cusp_mm        = 1.5,
++  .step_mm        = 0.5,
++  .hit_margin_px  = 2.0,
++  .history        = 100,
++};
 +
 +
 +typedef struct
@@ -166,6 +198,84 @@ index 0000000..0a51db3
 +
 +
 +static Stroke *current = NULL;
++
++
++/*  settings  */
++
++static gdouble
++key_double (GKeyFile    *file,
++            const gchar *key,
++            gdouble      def,
++            gdouble      min,
++            gdouble      max)
++{
++  GError  *error = NULL;
++  gdouble  value = g_key_file_get_double (file, SETTINGS_GROUP, key, &error);
++
++  if (error)
++    {
++      g_error_free (error);
++      return def;
++    }
++
++  return CLAMP (value, min, max);
++}
++
++static const Settings *
++settings_get (void)
++{
++  static Settings  settings;
++  static gboolean  loaded = FALSE;
++  static gint64    mtime  = -1;
++  gchar           *path;
++  GStatBuf         st;
++  gint64           new_mtime;
++
++  path      = g_build_filename (gimp_directory (), SETTINGS_FILE, NULL);
++  new_mtime = g_stat (path, &st) == 0 ? (gint64) st.st_mtime : 0;
++
++  if (! loaded || new_mtime != mtime)
++    {
++      GKeyFile *file = g_key_file_new ();
++
++      settings = defaults;
++
++      if (new_mtime && g_key_file_load_from_file (file, path, G_KEY_FILE_NONE, NULL))
++        {
++          const Settings *d = &defaults;
++
++          settings.enabled        = key_double (file, "enabled", d->enabled, 0, 1) != 0;
++          settings.passes         = key_double (file, "passes", d->passes, 2, 50);
++          settings.pass_min_mm    = key_double (file, "pass_min_mm", d->pass_min_mm, 0, 500);
++          settings.pass_max_mm    = key_double (file, "pass_max_mm", d->pass_max_mm, 0, 500);
++          settings.pass_seconds   = key_double (file, "pass_seconds", d->pass_seconds, 0.01, 10);
++          settings.px_per_mm      = key_double (file, "px_per_mm", d->px_per_mm, 0.1, 1000);
++          settings.turn_angle     = key_double (file, "turn_angle", d->turn_angle, 90, 180);
++          settings.parallel_angle = key_double (file, "parallel_angle", d->parallel_angle, 0, 90);
++          settings.straightness   = key_double (file, "straightness", d->straightness, 0, 1);
++          settings.length_ratio   = key_double (file, "length_ratio", d->length_ratio, 1, 100);
++          settings.cusp_angle     = key_double (file, "cusp_angle", d->cusp_angle, 45, 180);
++          settings.cusp_mm        = key_double (file, "cusp_mm", d->cusp_mm, 0.1, 50);
++          settings.step_mm        = key_double (file, "step_mm", d->step_mm, 0.05, 10);
++          settings.hit_margin_px  = key_double (file, "hit_margin_px", d->hit_margin_px, 0, 500);
++          settings.history        = key_double (file, "history", d->history, 1, 10000);
++        }
++
++      g_key_file_free (file);
++      loaded = TRUE;
++      mtime  = new_mtime;
++    }
++
++  g_free (path);
++
++  return &settings;
++}
++
++static gdouble
++angle_cos (gdouble degrees)
++{
++  return cos (degrees * G_PI / 180.0);
++}
 +
 +
 +/*  strokes  */
@@ -312,25 +422,27 @@ index 0000000..0a51db3
 +}
 +
 +static gboolean
-+leg_follows (const Leg *run,
-+             gint       n,
-+             const Leg *leg)
++leg_follows (const Settings *settings,
++             const Leg      *run,
++             gint            n,
++             const Leg      *leg)
 +{
 +  const Leg *prev = &run[n - 1];
 +
-+  if (leg_cos (prev, leg) > REVERSE)
++  if (leg_cos (prev, leg) > angle_cos (settings->turn_angle))
 +    return FALSE;
 +
-+  if (MAX (prev->len, leg->len) > LEG_RATIO * MIN (prev->len, leg->len))
++  if (MAX (prev->len, leg->len) > settings->length_ratio * MIN (prev->len, leg->len))
 +    return FALSE;
 +
-+  return n < 2 || leg_cos (&run[n - 2], leg) >= PARALLEL;
++  return n < 2 || leg_cos (&run[n - 2], leg) >= angle_cos (settings->parallel_angle);
 +}
 +
 +static gboolean
 +stroke_is_scribble (Stroke *stroke)
 +{
-+  static gdouble  px_per_mm = 0.0;
++  const Settings *settings = settings_get ();
++  gdouble         step     = settings->step_mm;
 +  GArray         *path;
 +  GArray         *cusps;
 +  Leg            *legs;
@@ -339,22 +451,13 @@ index 0000000..0a51db3
 +  gint            n_legs, n_run, k, i;
 +  gboolean        found = FALSE;
 +
-+  if (px_per_mm <= 0.0)
-+    {
-+      const gchar *env = g_getenv ("GIMP_SCRIBBLE_PX_PER_MM");
-+
-+      px_per_mm = env ? g_ascii_strtod (env, NULL) : 0.0;
-+      if (px_per_mm <= 0.0)
-+        px_per_mm = PX_PER_MM;
-+    }
-+
 +  if (stroke->coords->len < 10)
 +    return FALSE;
 +
 +  /*  image pixels -> mm of pen travel  */
-+  mm = stroke->scale / px_per_mm;
++  mm = stroke->scale / settings->px_per_mm;
 +
-+  /*  resample every STEP_MM along the path  */
++  /*  resample every step_mm along the path  */
 +  path = g_array_new (FALSE, FALSE, sizeof (Point));
 +
 +  for (i = 0; i < stroke->coords->len; i++)
@@ -374,21 +477,21 @@ index 0000000..0a51db3
 +      last = &g_array_index (path, Point, path->len - 1);
 +      d    = hypot (p.x - last->x, p.y - last->y);
 +
-+      while (d >= STEP_MM)
++      while (d >= step)
 +        {
-+          gdouble f = STEP_MM / d;
++          gdouble f = step / d;
 +          Point   q = { last->t + (p.t - last->t) * f,
 +                        last->x + (p.x - last->x) * f,
 +                        last->y + (p.y - last->y) * f };
 +
 +          g_array_append_val (path, q);
 +          last = &g_array_index (path, Point, path->len - 1);
-+          d   -= STEP_MM;
++          d   -= step;
 +        }
 +    }
 +
 +  /*  cusps: the pen comes back the way it went  */
-+  k     = MAX (1, (gint) (CUSP_MM / STEP_MM + 0.5));
++  k     = MAX (1, (gint) (settings->cusp_mm / step + 0.5));
 +  cusps = g_array_new (FALSE, FALSE, sizeof (gint));
 +
 +  {
@@ -404,7 +507,7 @@ index 0000000..0a51db3
 +        gdouble  norm = hypot (ux, uy) * hypot (vx, vy);
 +        gdouble  cos  = norm > 0.0 ? (ux * vx + uy * vy) / norm : 1.0;
 +
-+        if (cos < CUSP_COS)
++        if (cos < angle_cos (settings->cusp_angle))
 +          {
 +            gint *prev = cusps->len ? &g_array_index (cusps, gint, cusps->len - 1) : NULL;
 +
@@ -425,14 +528,14 @@ index 0000000..0a51db3
 +      }
 +  }
 +
-+  if (cusps->len + 1 < MIN_LEGS)
++  if ((gint) cusps->len + 1 < settings->passes)
 +    {
 +      g_array_free (cusps, TRUE);
 +      g_array_free (path, TRUE);
 +      return FALSE;
 +    }
 +
-+  /*  legs between cusps; look for MIN_LEGS straight passes in a row, each
++  /*  legs between cusps; look for "passes" straight passes in a row, each
 +   *  going back over the previous one
 +   */
 +  legs   = g_new (Leg, cusps->len + 1);
@@ -456,16 +559,17 @@ index 0000000..0a51db3
 +
 +      legs[n_legs++] = leg;
 +
-+      ok = (leg.len >= LEG_MIN_MM && leg.len <= LEG_MAX_MM &&
-+            leg.len >= STRAIGHT * (b - a) * STEP_MM);
++      ok = (leg.len >= settings->pass_min_mm &&
++            leg.len <= settings->pass_max_mm &&
++            leg.len >= settings->straightness * (b - a) * step);
 +
 +      if (! ok)
 +        {
 +          n_run = 0;
 +        }
-+      else if (n_run > 0 && ! leg_follows (run, n_run, &leg))
++      else if (n_run > 0 && ! leg_follows (settings, run, n_run, &leg))
 +        {
-+          if (leg_follows (&run[n_run - 1], 1, &leg))
++          if (leg_follows (settings, &run[n_run - 1], 1, &leg))
 +            {
 +              run[0] = run[n_run - 1];
 +              n_run  = 1;
@@ -482,7 +586,8 @@ index 0000000..0a51db3
 +          run[n_run++] = leg;
 +        }
 +
-+      if (n_run >= MIN_LEGS && median_secs (run, n_run) <= MAX_LEG_S)
++      if (n_run >= settings->passes &&
++          median_secs (run, n_run) <= settings->pass_seconds)
 +        found = TRUE;
 +    }
 +
@@ -518,7 +623,7 @@ index 0000000..0a51db3
 +{
 +  GeglRectangle s_rect;
 +  GeglRectangle c_rect;
-+  gdouble       tolerance = stroke->radius + 2.0;
++  gdouble       tolerance = stroke->radius + settings_get ()->hit_margin_px;
 +  guint         i, j;
 +
 +  stroke_get_extent (stroke,   &s_rect);
@@ -726,7 +831,6 @@ index 0000000..0a51db3
 +                                const GimpCoords *coords,
 +                                guint32           time)
 +{
-+  static gint       enabled = -1;
 +  GimpPaintOptions *options;
 +  GimpDisplayShell *shell;
 +  GimpDrawable     *drawable;
@@ -737,10 +841,7 @@ index 0000000..0a51db3
 +
 +  g_clear_pointer (&current, stroke_free);
 +
-+  if (enabled < 0)
-+    enabled = g_strcmp0 (g_getenv ("GIMP_SCRIBBLE"), "0") != 0;
-+
-+  if (! enabled || paint_tool->draw_line ||
++  if (! settings_get ()->enabled || paint_tool->draw_line ||
 +      g_list_length (paint_tool->drawables) != 1)
 +    return;
 +
@@ -854,15 +955,15 @@ index 0000000..0a51db3
 +
 +  g_ptr_array_add (history, stroke);
 +
-+  if (history->len > MAX_HISTORY)
-+    g_ptr_array_remove_range (history, 0, history->len - MAX_HISTORY);
++  if (history->len > (guint) settings_get ()->history)
++    g_ptr_array_remove_range (history, 0, history->len - settings_get ()->history);
 +}
 diff --git a/app/tools/gimppainttool-scribble.h b/app/tools/gimppainttool-scribble.h
 new file mode 100644
-index 0000000..c0b9e82
+index 0000000..addd864
 --- /dev/null
 +++ b/app/tools/gimppainttool-scribble.h
-@@ -0,0 +1,35 @@
+@@ -0,0 +1,36 @@
 +/* GIMP - The GNU Image Manipulation Program
 + * Copyright (C) 1995 Spencer Kimball and Peter Mattis
 + *
@@ -886,7 +987,8 @@ index 0000000..c0b9e82
 +/*  Scribble to erase: paintbrush/pencil/eraser strokes are recorded, and a
 + *  fast in-place zig-zag drawn with the paintbrush or pencil removes the
 + *  recorded strokes it crosses (later strokes are replayed on top), like
-+ *  GoodNotes.  Set GIMP_SCRIBBLE=0 to disable.
++ *  GoodNotes.  Settings: scribble.ini in the GIMP profile, edited with
++ *  Edit > Scribble Settings.
 + */
 +
 +void   gimp_paint_tool_scribble_start  (GimpPaintTool    *paint_tool,
@@ -910,3 +1012,224 @@ index 91e976c..ea67825 100644
    'gimppainttool.c',
    'gimppathoptions.c',
    'gimppathtool.c',
+diff --git a/plug-ins/python/meson.build b/plug-ins/python/meson.build
+index 535931a..2b53a05 100644
+--- a/plug-ins/python/meson.build
++++ b/plug-ins/python/meson.build
+@@ -9,6 +9,7 @@ python_plugins = [
+   { 'name': 'palette-sort' },
+   { 'name': 'palette-to-gradient' },
+   { 'name': 'python-eval' },
++  { 'name': 'scribble-settings' },
+   { 'name': 'spyro-plus' },
+ ]
+ 
+diff --git a/plug-ins/python/scribble-settings.py b/plug-ins/python/scribble-settings.py
+new file mode 100755
+index 0000000..fce70de
+--- /dev/null
++++ b/plug-ins/python/scribble-settings.py
+@@ -0,0 +1,203 @@
++#!/usr/bin/env python3
++# -*- coding: utf-8 -*-
++
++#   GIMP - The GNU Image Manipulation Program
++#
++#   This program is free software: you can redistribute it and/or modify
++#   it under the terms of the GNU General Public License as published by
++#   the Free Software Foundation; either version 3 of the License, or
++#   (at your option) any later version.
++#
++#   This program is distributed in the hope that it will be useful,
++#   but WITHOUT ANY WARRANTY; without even the implied warranty of
++#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++#   GNU General Public License for more details.
++#
++#   You should have received a copy of the GNU General Public License
++#   along with this program.  If not, see <https://www.gnu.org/licenses/>.
++
++# Edit > Scribble Settings: edits scribble.ini in the GIMP profile, which the
++# paint tools' scribble-to-erase (app/tools/gimppainttool-scribble.c) re-reads
++# whenever it changes.  The defaults here must match the ones there.
++
++import os
++import sys
++
++import gi
++gi.require_version('Gimp', '3.0')
++from gi.repository import Gimp
++gi.require_version('GimpUi', '3.0')
++from gi.repository import GimpUi
++gi.require_version('Gtk', '3.0')
++from gi.repository import Gtk
++from gi.repository import GLib
++from gi.repository import GObject
++
++PROC_NAME = 'plug-in-scribble-settings'
++GROUP = 'scribble'
++
++# key, label, tooltip, default, min, max, step, digits
++BASIC = [
++    ('passes', 'Passes needed',
++     'How many back-and-forth passes in a row make a scribble.', 5, 2, 50, 1, 0),
++    ('pass_min_mm', 'Shortest pass (mm)',
++     'Passes shorter than this (in mm of pen travel) don\'t count.', 1.5, 0, 500, 0.5, 1),
++    ('pass_seconds', 'Slowest pass (s)',
++     'Median time per pass. Slower zig-zags are drawing (hatching), not scribbling.', 0.35, 0.01, 10, 0.05, 2),
++    ('px_per_mm', 'Screen pixels per tablet mm',
++     'How many screen pixels one millimetre of pen travel covers; converts the mm values above.', 12.0, 0.1, 1000, 0.5, 1),
++]
++ADVANCED = [
++    ('turn_angle', 'Turn-back angle (°)',
++     'Consecutive passes must point at least this far apart (180 = straight back over the same line). '
++     'Lower is more sensitive, but zig-zags drifting sideways start to look like fast "iiii" handwriting.',
++     152.0, 90, 180, 1, 0),
++    ('parallel_angle', 'Parallel tolerance (°)',
++     'Every other pass must point within this angle of the one two before it.', 26.0, 0, 90, 1, 0),
++    ('straightness', 'Pass straightness',
++     'A pass\'s end-to-end distance divided by its path length (1 = perfectly straight). '
++     'Handwriting arches and loops score low.', 0.85, 0, 1, 0.05, 2),
++    ('length_ratio', 'Pass length ratio',
++     'Consecutive passes may differ in length by at most this factor.', 2.0, 1, 100, 0.1, 1),
++    ('pass_max_mm', 'Longest pass (mm)', 'Passes longer than this don\'t count.', 60.0, 0, 500, 1, 0),
++    ('cusp_angle', 'Turn sharpness (°)',
++     'A change of direction sharper than this ends one pass and starts the next.', 135.0, 45, 180, 1, 0),
++    ('cusp_mm', 'Turn measuring distance (mm)',
++     'How far before and after a point the change of direction is measured.', 1.5, 0.1, 50, 0.1, 1),
++    ('step_mm', 'Path resampling (mm)', 'The stroke is resampled every this many mm before analysing it.',
++     0.5, 0.05, 10, 0.05, 2),
++    ('hit_margin_px', 'Hit margin (px)',
++     'A stroke is erased when the scribble comes within its brush radius plus this many image pixels.',
++     2.0, 0, 500, 1, 0),
++    ('history', 'Strokes remembered',
++     'How many recent strokes per image can be scribbled away.', 100, 1, 10000, 10, 0),
++]
++
++
++def settings_path():
++    return os.path.join(Gimp.directory(), 'scribble.ini')
++
++
++def load():
++    values = {'enabled': True}
++    values.update({f[0]: f[3] for f in BASIC + ADVANCED})
++    keyfile = GLib.KeyFile()
++    try:
++        keyfile.load_from_file(settings_path(), GLib.KeyFileFlags.NONE)
++    except GLib.Error:
++        return values
++    for key in values:
++        try:
++            v = keyfile.get_double(GROUP, key)
++        except GLib.Error:
++            continue
++        values[key] = v != 0 if key == 'enabled' else v
++    return values
++
++
++def save(values):
++    keyfile = GLib.KeyFile()
++    keyfile.set_comment(None, None,
++                        ' Scribble to erase (Edit > Scribble Settings). Angles in degrees, lengths in mm of pen travel.')
++    keyfile.set_integer(GROUP, 'enabled', 1 if values['enabled'] else 0)
++    for key, *_, digits in BASIC + ADVANCED:
++        keyfile.set_string(GROUP, key, f'{values[key]:.{digits}f}')
++    keyfile.save_to_file(settings_path())
++
++
++def add_rows(grid, fields, values, spins):
++    for row, (key, label, tooltip, default, lo, hi, step, digits) in enumerate(fields):
++        name = Gtk.Label(label=label, xalign=0.0)
++        name.set_tooltip_text(tooltip)
++        adj = Gtk.Adjustment(value=values[key], lower=lo, upper=hi,
++                             step_increment=step, page_increment=step * 10)
++        spin = Gtk.SpinButton(adjustment=adj, digits=digits, numeric=True)
++        spin.set_tooltip_text(tooltip)
++        spin.set_hexpand(True)
++        grid.attach(name, 0, row, 1, 1)
++        grid.attach(spin, 1, row, 1, 1)
++        spins[key] = (spin, default)
++
++
++def run(procedure, config, data):
++    GimpUi.init(PROC_NAME)
++    values = load()
++
++    use_header_bar = Gtk.Settings.get_default().get_property('gtk-dialogs-use-header')
++    dialog = GimpUi.Dialog(use_header_bar=use_header_bar, title='Scribble Settings', role=PROC_NAME)
++    dialog.add_button('_Reset', Gtk.ResponseType.REJECT)
++    dialog.add_button('_Cancel', Gtk.ResponseType.CANCEL)
++    dialog.add_button('_OK', Gtk.ResponseType.OK)
++    dialog.set_default_response(Gtk.ResponseType.OK)
++
++    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, border_width=12)
++    dialog.get_content_area().pack_start(box, True, True, 0)
++
++    intro = Gtk.Label(xalign=0.0, wrap=True, max_width_chars=48,
++                      label='Scribble quickly back and forth over strokes with the paintbrush or '
++                            'pencil to erase them. Changes apply to the next stroke.')
++    box.pack_start(intro, False, False, 0)
++
++    enabled = Gtk.CheckButton(label='_Scribble to erase', use_underline=True, active=values['enabled'])
++    box.pack_start(enabled, False, False, 0)
++
++    spins = {}
++    basic = Gtk.Grid(row_spacing=6, column_spacing=12)
++    add_rows(basic, BASIC, values, spins)
++    box.pack_start(basic, False, False, 0)
++
++    expander = Gtk.Expander(label='_Advanced', use_underline=True, expanded=False)
++    advanced = Gtk.Grid(row_spacing=6, column_spacing=12, margin_top=6)
++    add_rows(advanced, ADVANCED, values, spins)
++    expander.add(advanced)
++    box.pack_start(expander, False, False, 0)
++
++    def sensitivity(*_):
++        basic.set_sensitive(enabled.get_active())
++        expander.set_sensitive(enabled.get_active())
++    enabled.connect('toggled', sensitivity)
++    sensitivity()
++
++    dialog.show_all()
++    while True:
++        response = dialog.run()
++        if response == Gtk.ResponseType.REJECT:
++            enabled.set_active(True)
++            for spin, default in spins.values():
++                spin.set_value(default)
++            continue
++        if response == Gtk.ResponseType.OK:
++            values['enabled'] = enabled.get_active()
++            for key, (spin, _) in spins.items():
++                spin.update()
++                values[key] = spin.get_value()
++            try:
++                save(values)
++            except GLib.Error as error:
++                dialog.destroy()
++                return procedure.new_return_values(Gimp.PDBStatusType.EXECUTION_ERROR,
++                                                   GLib.Error(error.message))
++        break
++
++    dialog.destroy()
++    return procedure.new_return_values(Gimp.PDBStatusType.SUCCESS, GLib.Error())
++
++
++class ScribbleSettings(Gimp.PlugIn):
++    def do_query_procedures(self):
++        return [PROC_NAME]
++
++    def do_create_procedure(self, name):
++        procedure = Gimp.Procedure.new(self, name, Gimp.PDBProcType.PLUGIN, run, None)
++        procedure.set_menu_label('Scri_bble Settings...')
++        procedure.set_documentation('Tune scribble to erase',
++                                    'Thresholds for erasing paintbrush and pencil strokes by scribbling over them',
++                                    name)
++        procedure.set_attribution('sbrothers7', 'sbrothers7', '2026')
++        procedure.add_enum_argument('run-mode', 'Run mode', 'The run mode', Gimp.RunMode,
++                                    Gimp.RunMode.INTERACTIVE, GObject.ParamFlags.READWRITE)
++        procedure.add_menu_path('<Image>/Edit')
++        return procedure
++
++
++Gimp.main(ScribbleSettings.__gtype__, sys.argv)
