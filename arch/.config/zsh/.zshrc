@@ -71,4 +71,5 @@ compinit
 
 export PATH="$HOME/.local/bin:$PATH"
 
-(( $+commands[fastfetch] )) && fastfetch
+# skip fastfetch in narrow terminals (logo + info wraps badly)
+(( $+commands[fastfetch] && COLUMNS >= 80 )) && fastfetch
