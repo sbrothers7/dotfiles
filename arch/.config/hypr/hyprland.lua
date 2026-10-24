@@ -30,6 +30,7 @@ hl.config({
         gaps_in     = 5,
         gaps_out    = 10,
         border_size = 1,
+        allow_tearing = true,   -- only for windows with the `immediate` rule (adofai)
         col = {
             active_border   = "rgba(ffffff66)",
             inactive_border = "rgba(ffffff22)",
@@ -111,9 +112,14 @@ rule("game", { content = "game" }, {
     force_rgbx  = true,
 })
 
-rule("adofai",  { class = "ADanceOfFireAndIce" }, { float = true })
+rule("adofai",  { class = "ADanceOfFireAndIce" }, { float = true, immediate = true })
 rule("dm-note", { class = "dm-note" },            bare)
 rule("zoom",    { class = "zoom" },               bare)
+
+-- tutorllama HUD panels are wlr-layer-shell surfaces (namespace
+-- "tutorllama"), not regular toplevel windows, so a windowrule-based
+-- approach doesn't apply - see the layer_rule below instead, same pattern
+-- as waybar/statbar.
 
 -- blur behind waybar's hover tooltips (the bar itself stays unblurred);
 -- ignore_alpha keeps the blur inside the tooltip's rounded corners
@@ -128,6 +134,17 @@ hl.layer_rule({
 hl.layer_rule({
     name         = "statbar-panels",
     match        = { namespace = "statbar-panel" },
+    blur         = true,
+    ignore_alpha = 0.1,
+})
+
+-- tutorllama HUD panels (gtk4-layer-shell) get the same glass blur
+-- treatment - each panel has its own "tutorllama-<slug>" namespace (so the
+-- app can tell them apart via hyprctl), matched here by a regex prefix
+-- rather than one shared exact string
+hl.layer_rule({
+    name         = "tutorllama-panels",
+    match        = { namespace = "^tutorllama-" },
     blur         = true,
     ignore_alpha = 0.1,
 })
